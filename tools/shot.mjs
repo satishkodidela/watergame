@@ -153,6 +153,24 @@ if (scenes.includes('skel')) {
   await run(() => { const g = window.__gw.game; g.debugZoom = 0; g.save.campaign.stars = {}; g.save.campaign.skeleton = 'common'; window.__gw.showIntro(0, 3); });
   await page.waitForTimeout(300); await shot('51-intro-skeletons');
 }
+if (scenes.includes('season')) {
+  const res = await page.evaluate(() => {
+    const g = window.__gw.game;
+    g.save.campaign.stars = { w5l24: 1 };
+    const unlocked = g.isWorldUnlocked(6);
+    window.__gw.show(null); window.__gw.startLevel(6, 0); g.god = true;
+    const r1 = g.level.recipe;
+    g.stats.gnats = 99; g.stats.cancels = 99; g.stats.perfect = 99; g.stats.markers = 99; g.stats.fishScared = 99; g.stats.bugsStunned = 99; g.time = r1.duration - 0.5; window.__gw.advance(3);
+    const after = { state: g.state, season: g.save.campaign.season, stars: g.save.campaign.stars[r1.id] };
+    window.__gw.startLevel(6, g.save.campaign.season);
+    const r2 = g.level.recipe;
+    return { unlocked, r1: { id: r1.id, world: r1.worldKey, D: r1.D, tpl: r1.template, goal: r1.goal }, after, r2: { id: r2.id, world: r2.worldKey, D: r2.D, tpl: r2.template } };
+  });
+  console.log('SEASON', JSON.stringify(res));
+  await run(() => { window.__gw.showPonds(); });
+  await page.waitForTimeout(300); await shot('60-ponds-season');
+  await run(() => { window.__gw.game.save.campaign.stars = {}; window.__gw.game.save.campaign.season = 0; });
+}
 if (scenes.includes('calib')) {
   const list = (process.env.LEVELS || '0:0,0:1,0:2,0:4,0:6,0:9,0:14,0:19,0:24').split(',').map((s) => s.split(':').map(Number));
   const out = [];

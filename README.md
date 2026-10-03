@@ -36,7 +36,34 @@ when you overeat and get heavy. At zero you sink. The arc below you is
 hunger: gnats and mosquitoes fall in and struggle, and their struggling has a
 ripple signature you learn to read, even in the dark.
 
-## The storm
+## Ponds (the campaign)
+
+Six ponds, 25 levels each, then an endless Storm Season. Every level is a
+small **recipe**: pond, length (55 to 110 s), weather curve, which threats are
+on, a goal and two extra star conditions. The first levels of each pond and
+every boss are authored; the rest come from a seeded generator with a
+difficulty budget, so level 212 is the same for everyone.
+
+| pond | twist | boss |
+| --- | --- | --- |
+| Puddle | rain only, the teaching ground | the first downpour |
+| Garden Pond | lily pads break waves and shelter you, a koi | the koi (strike it three times) |
+| Rain Barrel | hard walls, every wave reflects and echoes | the overflow spout |
+| Roadside Ditch | drift, oil slicks, passing cars throw heavy drops | the storm drain |
+| Rice Paddy | night, stalks to weave through, backswimmers, a frog | the egret's shadow |
+| Mountain Tarn | cold clear water, gusts, hail bursts | the hailstorm |
+
+Level templates: Survive, Feast (eat N), Glassmaker (cancel or perfect-cancel
+N), Hunt (scare the fish or stun hunters with a crest) and Dark Crossing
+(reach lights in order). Stars open the next pond, unlock skeletons, and every
+fifth level or boss offers a molt.
+
+**Skeletons** are selectable bodies with real stat differences and a score
+multiplier: Common Strider, Pond Skater (fast, thin skin), Broadfoot (slow,
+tough, big dimples), Giant Strider (huge pulse), Sea Skater (slick-proof) and
+Nymph (tiny, fragile, double score).
+
+## Daily Storm (the original run)
 
 | time | phase | what happens |
 | --- | --- | --- |
@@ -58,8 +85,9 @@ the water, which is real physics), and the downpour itself.
 **Daily Storm** uses one seed per UTC day for everyone, so scores are
 comparable. **Free Storm** rolls a new sky every time. Between runs you
 **molt**: pick one of three upgrades (longer legs, repellent hairs, stronger
-pulse, wider sense, resonance). Progress, best scores and the daily best are in
-`localStorage`. Your best run leaves a *ghost*: faint ripples on the next pond.
+pulse, wider sense, resonance). Progress, best scores, stars and the daily best
+are in `localStorage`. Your best run leaves a *ghost*: faint ripples on the
+next pond.
 
 ## How it works
 
@@ -69,7 +97,11 @@ you see are exactly the waves that hit you.
 ```
 src/
   water.js     256×256 (or 128×128) RGBA16F ping-pong wave sim, impulses, damping
-               zones, async PBO readback (128×128 height+slope) for gameplay queries
+               zones, obstacle mask, async PBO readback (128×128 height+slope)
+  worlds.js    the six pond presets (bed, water, light, glow, bank, edge, roster)
+  levels.js    level recipes: authored openers and bosses, the seeded generator,
+               templates, goals, star conditions, LevelScript director
+  skeletons.js the six strider bodies
   shaders.js   all GLSL: sim, bed bake, water surface, sprites, post
   renderer.js  pass order: water → sprites → ¼-res blur chain → composite
   game.js      strider, director (time → weather), threats, scoring, molts, camera
@@ -84,7 +116,9 @@ Laplacian-of-velocity viscosity term that kills grid-scale ripples, a sponge
 layer at the pond rim, and up to 16 impulses + 12 damping zones per step as
 uniforms. Rings write a slightly smaller ring into the previous-height channel
 so the pulse travels *outward* instead of collapsing back on the strider.
-Glass zones and slicks are damping zones in the same pass.
+Glass zones and slicks are damping zones in the same pass. Lily pads and
+stalks are an R8 mask the sim forces to zero, so waves reflect and diffract
+around them; the Rain Barrel swaps the absorbing rim for a hard wall.
 
 **Surface shader.** From the single height map: normals (central differences
 plus analytic leg-dimple and fish-bulge gradients), refraction of a baked
@@ -113,6 +147,8 @@ headroom. Override with `?quality=high|medium|low` or the title-screen toggle.
 npm i -D playwright-core      # once; uses a system Chromium (PLAYWRIGHT_BROWSERS_PATH)
 node tools/shot.mjs shots     # headless screenshots of every phase
 SCENES=bot node tools/shot.mjs   # scripted bot plays the whole storm, prints tension log
+LEVELS=1:0,1:8,1:24 SCENES=calib node tools/shot.mjs   # bot plays campaign levels, prints clear/stars
+SCENES=worlds,mech,skel node tools/shot.mjs   # every pond, every mechanic, every skeleton
 ```
 
 `window.__gw` exposes the game, water and renderer in the console
