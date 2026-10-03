@@ -90,12 +90,12 @@ async function covers() {
 }
 
 // ---- videos -----------------------------------------------------------------
-const FPS = 30;
+const FPS = 24;
 const SCENES = [
-  { dur: 3.5, setup: `window.__gw.startLevel(0, 3); g.god = true; g.debugZoom = 1.5; g.envOverride = { aimed: 0.6, rain: 0.4 }; window.__gw.advance(1.5);` },
-  { dur: 3.5, setup: `window.__gw.startLevel(1, 10); g.god = true; g.debugZoom = 1.3; window.__gw.advance(3); g.fish.state = 'stalk'; g.fish.t = 1.2; g.fish.cool = 99; g.fish.visible = true; g.fish.depth = 0.55; g.fish.x = g.strider.x - 0.12; g.fish.y = g.strider.y - 0.08; g.fish.heading = 0.6;` },
-  { dur: 3.5, setup: `window.__gw.startLevel(4, 10); g.god = true; g.debugZoom = 1.3; window.__gw.advance(2); g.egret.t = 0; g.envOverride = { rain: 0.9 };` },
-  { dur: 3.5, setup: `window.__gw.startLevel(0, 24); g.god = true; g.debugZoom = 1.4; window.__gw.advance(12);` },
+  { dur: 3.0, setup: `window.__gw.startLevel(0, 3); g.god = true; g.debugZoom = 1.5; g.envOverride = { aimed: 0.6, rain: 0.4 }; window.__gw.advance(1.5);` },
+  { dur: 3.0, setup: `window.__gw.startLevel(1, 10); g.god = true; g.debugZoom = 1.3; window.__gw.advance(3); g.fish.state = 'stalk'; g.fish.t = 1.2; g.fish.cool = 99; g.fish.visible = true; g.fish.depth = 0.55; g.fish.x = g.strider.x - 0.12; g.fish.y = g.strider.y - 0.08; g.fish.heading = 0.6;` },
+  { dur: 3.0, setup: `window.__gw.startLevel(4, 10); g.god = true; g.debugZoom = 1.3; window.__gw.advance(2); g.egret.t = 0; g.envOverride = { rain: 0.9 };` },
+  { dur: 3.0, setup: `window.__gw.startLevel(0, 24); g.god = true; g.debugZoom = 1.4; window.__gw.advance(12);` },
 ];
 const DRIVE = `
   const g = window.__gw.game, s = g.strider, t = g.time;
@@ -108,10 +108,12 @@ const DRIVE = `
   g.setInput(dir);
   if ((g.incoming || 0) > 0.02 && g.phaseSign() < 0 && s.pulseCool <= 0) g.pulse();
   window.__gw.advance(1 / ${FPS});
+  window.__gw.renderOnce(1 / ${FPS});
 `;
 async function video(name, w, h) {
   const page = await openPage(w, h);
   await page.addStyleTag({ content: '#hud { display: flex !important; } #hint { display: none !important; }' });
+  await page.evaluate(() => window.__gw.hold(true));
   const frameDir = path.join(process.env.FRAME_DIR || '/tmp', 'frames-' + name);
   fs.rmSync(frameDir, { recursive: true, force: true });
   fs.mkdirSync(frameDir, { recursive: true });
@@ -140,6 +142,6 @@ async function video(name, w, h) {
 }
 
 if (what === 'covers') await covers();
-if (what === 'videos') { await video('preview-landscape-1280x720', 1280, 720); await video('preview-portrait-720x1280', 720, 1280); }
+if (what === 'videos') { await video('preview-landscape-960x540', 960, 540); await video('preview-portrait-540x960', 540, 960); }
 await browser.close();
 server.kill();

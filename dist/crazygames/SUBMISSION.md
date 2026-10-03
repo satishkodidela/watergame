@@ -30,4 +30,4 @@ Marketing creatives URL: none (covers and videos attached)
 ## Files
 - Build: dist/glasswater-crazygames.zip (index.html at the root)
 - Covers: dist/creatives/cover-landscape-1920x1080.jpg, cover-portrait-800x1200.jpg, cover-square-800x800.jpg
-- Videos: dist/creatives/preview-landscape-1280x720.mp4, preview-portrait-720x1280.mp4 (14 s, H.264)
+- Videos: dist/creatives/preview-landscape-960x540.mp4, preview-portrait-540x960.mp4 (12 s, H.264)

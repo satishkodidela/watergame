@@ -379,8 +379,17 @@ function joyWorld() {
   const a = toW(j.sx, j.sy), b = toW(j.cx, j.cy);
   return { sx: a.x, sy: a.y, cx: b.x, cy: b.y, r: 70 / game.cam.scale };
 }
+let holdRender = false;
+function renderOnce(dt = 1 / 30) {
+  water.pollReadback();
+  game.updateCamera(dt);
+  const view = game.buildView(renderer.quality.renderScale);
+  renderer.render(water, view, (r, additive) => game.drawSprites(r, additive, null));
+  domT = 1; updateDom(0);
+}
 function frame(now) {
   requestAnimationFrame(frame);
+  if (holdRender) { last = now; return; }
   let dt = (now - last) / 1000;
   last = now;
   if (dt > 0.25) dt = 0.25;
@@ -437,6 +446,8 @@ window.__gw = {
   pulse() { game.pulse(); },
   jump(t) { game.time = t; },
   startLevel(w, i) { show(null); game.startLevel(w, i); },
+  hold(v) { holdRender = v; },
+  renderOnce,
   show, showPonds, showLevels, showIntro,
 };
 if (params.get('autostart')) {
