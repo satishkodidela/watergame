@@ -24,6 +24,16 @@ fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'index.html'), html);
 console.log(`dist/index.html: ${(html.length / 1024).toFixed(0)} KB`);
 
+// Optional: a CrazyGames build (same bundle plus their SDK script tag):
+//   node tools/bundle.mjs --crazygames dist/crazygames/index.html
+const ci = process.argv.indexOf('--crazygames');
+if (ci > 0 && process.argv[ci + 1]) {
+  const cg = html.replace('<script type="module">', '<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>\n<script type="module">');
+  fs.mkdirSync(path.dirname(process.argv[ci + 1]), { recursive: true });
+  fs.writeFileSync(process.argv[ci + 1], cg);
+  console.log(`${process.argv[ci + 1]}: ${(cg.length / 1024).toFixed(0)} KB`);
+}
+
 // Optional second output: a body-only fragment for hosts that wrap the page in
 // their own document skeleton (e.g. claude.ai artifacts). Usage:
 //   node tools/bundle.mjs --fragment path/to/out.html

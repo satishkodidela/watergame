@@ -2,6 +2,7 @@ import { mulberry32, dailySeed, dailyKey } from './rng.js';
 import { WORLDS, CLASSIC_WORLD } from './worlds.js';
 import { classicEnv, makeLevel, LevelScript, STARS, goalProgress, levelId, RUN_END } from './levels.js';
 import { SKELETONS, SKELETON_BY_KEY } from './skeletons.js';
+import { platform } from './platform.js';
 export { SKELETONS };
 
 export const UPGRADES = {
@@ -60,7 +61,7 @@ export class Game {
   // ---- persistence -------------------------------------------------------
   _load() {
     try {
-      const s = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      const s = JSON.parse(platform.getItem(STORE_KEY) || '{}');
       return {
         best: s.best || 0,
         bestEndless: s.bestEndless || 0,
@@ -76,7 +77,8 @@ export class Game {
       return { best: 0, bestEndless: 0, molts: { legs: 0, hairs: 0, pulse: 0, sense: 0, resonance: 0 }, runs: 0, clears: 0, daily: null, ghost: null, ghostScore: 0, campaign: { stars: {}, best: {}, skeleton: 'common', season: 0 } };
     }
   }
-  _store() { try { localStorage.setItem(STORE_KEY, JSON.stringify(this.save)); } catch (_) { /* private mode */ } }
+  _store() { platform.setItem(STORE_KEY, JSON.stringify(this.save)); }
+  reloadSave() { this.save = this._load(); }
 
   // ---- world reset -------------------------------------------------------
   _resetWorld(seed) {

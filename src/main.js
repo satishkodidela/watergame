@@ -8,6 +8,7 @@ import { dailyKey } from './rng.js';
 import { WORLDS } from './worlds.js';
 import { makeLevel, goalText, starText, MODIFIERS } from './levels.js';
 import { SKELETONS, statLine } from './skeletons.js';
+import { platform } from './platform.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -78,6 +79,7 @@ const SCREENS = ['title', 'end', 'pause', 'ponds', 'levels', 'intro', 'levelend'
 function show(name) {
   for (const s of SCREENS) $(s).hidden = s !== name;
   ui.hud.classList.toggle('dim', !!name);
+  if (name) platform.gameplayStop(); else platform.gameplayStart();
 }
 let current = { w: 0, i: 0, recipe: null };
 function showPonds() {
@@ -153,11 +155,18 @@ function buildSkeletonRow() {
   }
   $('skel-info').textContent = `${sel.name} · ${sel.desc} · ${statLine(sel)}`;
 }
+let levelEnds = 0;
 function startLevel(wi, i) {
   audio.init();
   if (audio.master) audio.master.gain.value = soundOn ? 0.8 : 0;
-  show(null);
-  game.startLevel(wi, i);
+  const go = () => { show(null); game.startLevel(wi, i); };
+  if (levelEnds > 0 && levelEnds % 3 === 0) { levelEnds++; platform.midgameAd(go); } else go();
+}
+let adPaused = false;
+function setAdPause(p) {
+  adPaused = p;
+  if (audio.master) audio.master.gain.value = p ? 0 : (soundOn ? 0.8 : 0);
+  if (audio.ctx) { if (p) audio.ctx.suspend(); else audio.ctx.resume(); }
 }
 $('btn-ponds').onclick = showPonds;
 $('ponds-back').onclick = () => showTitle();
@@ -247,6 +256,7 @@ function setPaused(p) {
   if (game.state !== 'playing' && p) return;
   paused = p;
   ui.pause.hidden = !p;
+  if (p) platform.gameplayStop(); else platform.gameplayStart();
   if (audio.ctx) { if (p) audio.ctx.suspend(); else audio.ctx.resume(); }
 }
 window.addEventListener('keydown', (e) => {
@@ -273,6 +283,8 @@ function onLevelEnd(res) {
   $('le-molt').innerHTML = '';
   $('le-molt-title').hidden = true;
   if (res.moltOffered) buildMolt('le-molt', 'le-molt-title');
+  levelEnds++;
+  if (res.cleared && (res.nStars === 3 || r.boss)) platform.happy();
   const hasNext = res.cleared && (r.season || res.i + 1 < WORLDS[res.w].levels);
   $('btn-next').hidden = !hasNext;
   $('btn-next').textContent = r.season ? 'Next storm' : 'Next';
@@ -280,6 +292,7 @@ function onLevelEnd(res) {
 game.onEnd = (res) => {
   if (res.kind === 'level') { onLevelEnd(res); return; }
   show('end');
+  if (res.reason === 'survived') platform.happy();
   $('end-title').textContent = res.reason === 'survived' ? (game.endless ? 'The storm took you.' : 'Sunrise.') : 'You sank.';
   const causes = CAUSES;
   $('end-sub').textContent = res.reason === 'survived' && !game.endless
@@ -373,7 +386,7 @@ function frame(now) {
   if (dt > 0.25) dt = 0.25;
   resize();
   water.pollReadback();
-  if (!paused) {
+  if (!paused && !adPaused) {
     input.poll();
     game.setInput(input.dir);
     const pulses = input.takePulse();
@@ -402,6 +415,11 @@ function frame(now) {
 
 showTitle();
 requestAnimationFrame(frame);
+platform.loadingStart();
+platform.init({ onAdStart: () => setAdPause(true), onAdEnd: () => setAdPause(false) }).then((ok) => {
+  if (ok) { game.reloadSave(); if (!$('title').hidden) showTitle(); }
+  platform.loadingStop();
+});
 
 // ---- debug hooks (used by tools/shot.mjs) ---------------------------------
 window.__gw = {

@@ -6,7 +6,9 @@
   "private": true,
   "scripts": {
     "start": "node tools/serve.mjs 8080",
-    "shots": "node tools/shot.mjs shots"
+    "shots": "node tools/shot.mjs shots",
+    "build": "node tools/bundle.mjs",
+    "build:crazygames": "node tools/bundle.mjs --crazygames dist/crazygames/index.html && node tools/pack.mjs dist/crazygames dist/glasswater-crazygames.zip"
   },
   "devDependencies": {
     "playwright-core": "^1.55.0"
