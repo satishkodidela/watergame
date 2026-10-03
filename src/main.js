@@ -275,8 +275,7 @@ window.__gw = {
   advance(seconds) {
     const sub = TIERS[tier].substeps;
     const n = Math.round(seconds / DT);
-    for (let i = 0; i < n; i++) { game.update(DT); water.step(sub); }
-    water.requestReadback();
+    for (let i = 0; i < n; i++) { game.update(DT); water.step(sub); water.readbackSync(); }
   },
   press(key, down = true) {
     if (down) input.keys.add(key); else input.keys.delete(key);

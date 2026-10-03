@@ -68,6 +68,22 @@ if (scenes.includes('fishclose')) {
   await page.waitForTimeout(1500); await shot('12-fish-close');
   await run(() => { const g = window.__gw.game; g.debugZoom = 0; g.envOverride = null; });
 }
+if (scenes.includes('input')) {
+  // real pointer input: drag = joystick, tap = pulse, tier switch mid-run
+  const before = await page.evaluate(() => ({ x: window.__gw.game.strider.x, y: window.__gw.game.strider.y, cool: window.__gw.game.strider.pulseCool }));
+  await page.mouse.move(640, 360); await page.mouse.down(); await page.mouse.move(700, 300, { steps: 8 });
+  await page.waitForTimeout(900);
+  const mid = await page.evaluate(() => ({ dir: { ...window.__gw.input.dir }, x: window.__gw.game.strider.x, y: window.__gw.game.strider.y }));
+  await page.mouse.up();
+  await page.mouse.click(300, 500);
+  const queued = await page.evaluate(() => window.__gw.input.pulseQueued);
+  await page.waitForTimeout(1500);
+  const after = await page.evaluate((q) => ({ queued: q, cool: window.__gw.game.strider.pulseCool, lastPulse: window.__gw.game.strider.lastPulse, pulsesFx: window.__gw.game.fx.length }), queued);
+  console.log('INPUT', JSON.stringify({ before, mid, after }));
+  await page.evaluate(() => { const g = window.__gw; g.renderer.setQuality({ renderScale: 0.8, dof: false, bloom: true, blurDiv: 8, micro: false }); g.water.resize(128); g.advance(1); });
+  await settle(); await shot('13-after-tier-drop');
+  const err = await page.evaluate(() => window.__gw.renderer.gl ? 0 : 0);
+}
 if (scenes.includes('bot')) {
   const res = await page.evaluate(() => {
     const g = window.__gw.game; g.god = false; g.time = 0;

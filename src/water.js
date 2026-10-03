@@ -129,6 +129,16 @@ export class Water {
     this.hasData = true;
   }
 
+  // Synchronous readback (tests / headless): no PBO, stalls the pipeline.
+  readbackSync() {
+    const gl = this.gl;
+    bindTarget(gl, this.readTarget);
+    this.progRead.use().f('uTexel', this.texel).tex('uH', 0, this.a.tex);
+    drawFullscreen(gl);
+    gl.readPixels(0, 0, RB, RB, gl.RGBA, gl.UNSIGNED_BYTE, this.pixels);
+    this.hasData = true;
+  }
+
   // Collect any readback whose fence has signaled, oldest first.
   pollReadback() {
     const gl = this.gl;

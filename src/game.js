@@ -811,7 +811,7 @@ export class Game {
     const d = Math.hypot(s.x - fr.x, s.y - fr.y);
     if (fr.state === 'sit') {
       fr.glint = lerp(fr.glint, 0, dt * 4);
-      if (d < 0.23 && fr.cool <= 0 && this.state === 'playing') { fr.state = 'aim'; fr.t = 0.85; }
+      if (d < 0.21 && fr.cool <= 0 && this.state === 'playing') { fr.state = 'aim'; fr.t = 0.9; }
       else if (fr.t <= 0) { fr.state = 'hop'; fr.t = 0.4; }
       fr.cool = Math.max(0, (fr.cool || 0) - dt);
     } else if (fr.state === 'aim') {
@@ -829,7 +829,7 @@ export class Game {
       tg.x = lerp(tg.x0, tg.tx, k); tg.y = lerp(tg.y0, tg.ty, k);
       if (!tg.hit && tg.t >= 0.1 && tg.t < 0.16 && this.state === 'playing') {
         if (Math.hypot(s.x - tg.tx, s.y - tg.ty) < 0.026) {
-          tg.hit = true; s.tension -= 0.45; this.dmg.frog += 0.45; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
+          tg.hit = true; s.tension -= 0.4; this.dmg.frog += 0.4; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
           s.vx += Math.cos(fr.face + Math.PI) * 0.25; s.vy += Math.sin(fr.face + Math.PI) * 0.25;
           this.hint('frog · keep to the open centre', 2.5);
         }
