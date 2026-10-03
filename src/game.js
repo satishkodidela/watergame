@@ -107,7 +107,7 @@ export class Game {
     this.spawnAcc = { gnat: 0, rain: 0, slick: 0, wind: 0 };
     this.teach = { drops: [18, 36, 50], i: 0 };
     this.fish = { x: 0.5, y: 0.2, heading: 0, size: 0.09, depth: 0.1, mouth: 0, visible: false, state: 'hidden', t: 14, tx: 0.5, ty: 0.5, cool: 0 };
-    this.frog = { x: 0, y: 0, ang: 0, face: 0, state: 'away', t: 20, glint: 0, visible: false };
+    this.frog = { x: 0, y: 0, ang: 0, face: 0, state: 'away', t: 20, glint: 0, visible: false, cool: 0 };
     this.strider = {
       x: 0.5, y: 0.5, vx: 0, vy: 0, heading: Math.PI / 2, speed: 0,
       tension: 1, hunger: 1, weight: 0, alive: true, sink: 0, visible: true,
@@ -116,6 +116,8 @@ export class Game {
       feet: LEG_DEF.map(() => ({ x: 0.5, y: 0.5, r: 0.006, w: 1, kx: 0.5, ky: 0.5 })),
     };
     this.phaseT = 0;
+    this.dmg = { wave: 0, slick: 0, hunger: 0, weight: 0, fish: 0, frog: 0, bug: 0 };
+    this.cause = '';
     this.ready = 0;        // "cancel window open" indicator strength
     this.flash = 0;
     this.water.clear();
@@ -355,18 +357,21 @@ export class Game {
     this.waveAtStrider = wave;
     const tipThr = 0.44 - 0.10 * heavy;
     const hairs = 1 - 0.16 * lv.hairs;
+    const decay = Math.exp(-dt / 4);
+    for (const k in this.dmg) this.dmg[k] *= decay;
     if (wave > tipThr && s.immune <= 0) {
       const dmg = Math.min(0.75, (wave - tipThr) * 1.8) * dt * hairs;
       s.tension -= dmg;
+      this.dmg.wave += dmg;
       if (s.hurtT <= 0 && dmg > 0.004) { s.hurtT = 0.5; this.audio.hurt(); this.combo = 0; }
     } else if (wave < tipThr * 0.6 && !inSlick && s.hunger > 0) {
       s.tension += dt * 0.035;
     }
-    if (inSlick) { s.tension -= dt * 0.11; if (s.hurtT <= 0) { s.hurtT = 1.2; this.hint('slick · surface weakens', 2); } }
+    if (inSlick) { s.tension -= dt * 0.11; this.dmg.slick += dt * 0.11; if (s.hurtT <= 0) { s.hurtT = 1.2; this.hint('slick · surface weakens', 2); } }
     s.hunger -= dt / 110;
-    if (s.hunger <= 0) { s.hunger = 0; s.tension -= dt * 0.05; }
+    if (s.hunger <= 0) { s.hunger = 0; s.tension -= dt * 0.05; this.dmg.hunger += dt * 0.05; }
     s.weight = Math.max(0, s.weight - dt * 0.035);
-    if (s.weight > 1) s.tension -= dt * 0.06 * (s.weight - 1);
+    if (s.weight > 1) { s.tension -= dt * 0.06 * (s.weight - 1); this.dmg.weight += dt * 0.06 * (s.weight - 1); }
     s.tension = clamp(s.tension, 0, 1);
     if (this.god) s.tension = Math.max(s.tension, 0.5);
     if (s.tension <= 0) this._sink();
@@ -484,6 +489,8 @@ export class Game {
   _sink() {
     const s = this.strider;
     s.tension = 0;
+    let best = 0;
+    for (const k in this.dmg) if (this.dmg[k] > best) { best = this.dmg[k]; this.cause = k; }
     this.state = 'sinking';
     this.sinkT = 0;
     this.water.disc(s.x, s.y, 0.03, -0.12);
@@ -511,7 +518,7 @@ export class Game {
   _finish(reason) {
     this.state = 'ended';
     const score = Math.floor(this.score);
-    const res = { reason, score, stats: this.stats, time: this.time, mode: this.mode, newBest: false, newDaily: false, endlessOffered: reason === 'survived' && !this.endless };
+    const res = { reason, cause: this.cause, score, stats: this.stats, time: this.time, mode: this.mode, newBest: false, newDaily: false, endlessOffered: reason === 'survived' && !this.endless };
     if (this.endless) { if (score > this.save.bestEndless) { this.save.bestEndless = score; res.newBest = true; } }
     else if (score > this.save.best) { this.save.best = score; res.newBest = true; }
     if (reason === 'survived') this.save.clears++;
@@ -726,13 +733,13 @@ export class Game {
         f.x += Math.cos(f.heading) * sp * dt; f.y += Math.sin(f.heading) * sp * dt;
         const d = Math.hypot(s.x - f.x, s.y - f.y);
         if (d < 0.09 || f.t <= 0) {
-          if (d < 0.16) { f.state = 'rise'; f.t = 1.35; f.tx = s.x; f.ty = s.y; this.audio.rumble(1.4); }
+          if (d < 0.16) { f.state = 'rise'; f.t = 1.6; f.tx = s.x; f.ty = s.y; this.audio.rumble(1.6); }
           else { f.state = 'retreat'; f.t = 1.2; }
         }
         break;
       }
       case 'rise': {
-        const k = 1 - f.t / 1.35;
+        const k = 1 - f.t / 1.6;
         f.depth = lerp(0.55, 0.97, smooth(k));
         f.x = lerp(f.x, f.tx - Math.cos(f.heading) * 0.06, dt * 3);
         f.y = lerp(f.y, f.ty - Math.sin(f.heading) * 0.06, dt * 3);
@@ -746,7 +753,7 @@ export class Game {
           this.audio.splashBig();
           const d = Math.hypot(s.x - mx, s.y - my);
           if (d < 0.055 && this.state === 'playing') {
-            s.tension -= 0.6; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
+            s.tension -= 0.45; this.dmg.fish += 0.45; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
             const push = 0.5; s.vx += (s.x - mx) / (d + 1e-4) * push; s.vy += (s.y - my) / (d + 1e-4) * push;
             this.hint('the god below', 2.5);
           }
@@ -822,7 +829,7 @@ export class Game {
       tg.x = lerp(tg.x0, tg.tx, k); tg.y = lerp(tg.y0, tg.ty, k);
       if (!tg.hit && tg.t >= 0.1 && tg.t < 0.16 && this.state === 'playing') {
         if (Math.hypot(s.x - tg.tx, s.y - tg.ty) < 0.026) {
-          tg.hit = true; s.tension -= 0.5; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
+          tg.hit = true; s.tension -= 0.45; this.dmg.frog += 0.45; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
           s.vx += Math.cos(fr.face + Math.PI) * 0.25; s.vy += Math.sin(fr.face + Math.PI) * 0.25;
           this.hint('frog · keep to the open centre', 2.5);
         }
@@ -902,7 +909,7 @@ export class Game {
         }
         const ds = Math.hypot(s.x - b.x, s.y - b.y);
         if (ds < 0.022 && this.loudness() > 0.15 && this.state === 'playing') {
-          s.tension -= 0.3; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 4;
+          s.tension -= 0.3; this.dmg.bug += 0.3; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 4;
           this.hint('backswimmer · stop moving to go silent', 3);
         }
       }

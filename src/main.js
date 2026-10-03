@@ -134,9 +134,10 @@ game.onEnd = (res) => {
   ui.hud.classList.add('dim');
   ui.end.hidden = false;
   $('end-title').textContent = res.reason === 'survived' ? (game.endless ? 'The storm took you.' : 'Sunrise.') : 'You sank.';
+  const causes = { wave: 'A wave tipped you.', slick: 'The slick let go of you.', hunger: 'You starved.', weight: 'Too heavy for the skin.', fish: 'The god below took you.', frog: 'The frog.', bug: 'A backswimmer found you.' };
   $('end-sub').textContent = res.reason === 'survived' && !game.endless
     ? 'The camera pulls back. It was a puddle all along.'
-    : `You lasted ${fmtTime(res.time)}.`;
+    : `${causes[res.cause] || ''} You lasted ${fmtTime(res.time)}.`.trim();
   $('end-score').textContent = res.score;
   const st = res.stats;
   $('end-stats').innerHTML = [

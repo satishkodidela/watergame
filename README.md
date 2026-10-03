@@ -4,7 +4,8 @@
 meteor, every ripple a wave, and the waves add up or cancel out.*
 
 One storm, one night, 6–8 minutes. A WebGL2 game with no dependencies, no
-build step and no downloaded assets: the whole thing is ~80 KB of source.
+build step and no downloaded assets: the whole thing is ~130 KB of source
+(about 35 KB gzipped) and the GPU bakes its own textures at startup.
 
 ## Play it
 

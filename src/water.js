@@ -22,13 +22,13 @@ export class Water {
     this.impB = new Float32Array(16 * 4);
     this.zoneA = new Float32Array(12 * 4);
     this.readTarget = createTarget(gl, RB, RB, { internalFormat: gl.RGBA8, filter: gl.LINEAR });
-    this.pbos = [gl.createBuffer(), gl.createBuffer()];
+    this.pbos = [gl.createBuffer(), gl.createBuffer(), gl.createBuffer()];
     for (const b of this.pbos) {
       gl.bindBuffer(gl.PIXEL_PACK_BUFFER, b);
       gl.bufferData(gl.PIXEL_PACK_BUFFER, RB * RB * 4, gl.STREAM_READ);
     }
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-    this.fences = [null, null];
+    this.fences = [null, null, null];
     this.pboIndex = 0;
     this.pixels = new Uint8Array(RB * RB * 4);
     this.hasData = false;
@@ -108,14 +108,14 @@ export class Water {
     this.progRead.use().f('uTexel', this.texel).tex('uH', 0, this.a.tex);
     drawFullscreen(gl);
     const idx = this.pboIndex;
-    // If this buffer still holds an unread result (slow GPU), consume it now
-    // rather than overwriting it.
-    if (this.fences[idx]) this._consume(idx);
+    // Still in flight from three frames ago (very slow GPU): skip this frame's
+    // readback rather than stall or overwrite.
+    if (this.fences[idx]) return;
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, this.pbos[idx]);
     gl.readPixels(0, 0, RB, RB, gl.RGBA, gl.UNSIGNED_BYTE, 0);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
     this.fences[idx] = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-    this.pboIndex = 1 - idx;
+    this.pboIndex = (idx + 1) % 3;
   }
 
   // Collect the previous frame's readback if it has landed.
@@ -133,8 +133,8 @@ export class Water {
   pollReadback() {
     const gl = this.gl;
     let got = false;
-    const order = [this.pboIndex, 1 - this.pboIndex]; // oldest first
-    for (const idx of order) {
+    for (let k = 0; k < 3; k++) {
+      const idx = (this.pboIndex + k) % 3; // oldest first
       const f = this.fences[idx];
       if (!f) continue;
       if (gl.getSyncParameter(f, gl.SYNC_STATUS) !== gl.SIGNALED) continue;

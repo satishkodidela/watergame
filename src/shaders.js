@@ -276,9 +276,9 @@ void main(){
   float dPond = length(pc);
   float waterMask = 1.0 - smoothstep(uPondR - 0.0015, uPondR + 0.0015, dPond);
 
-  // ---- bank ----
-  vec3 bank;
-  {
+  // ---- bank (skipped for pixels fully on the water) ----
+  vec3 bank = vec3(0.0);
+  if (waterMask < 1.0) {
     vec3 b = texture(uBed, world * 0.42).rgb;
     b = mix(b, vec3(0.70, 0.62, 0.48), 0.30) * 1.08;
     float moss = smoothstep(0.50, 0.80, fbm(world * 6.0 + 40.0));

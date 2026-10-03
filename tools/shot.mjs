@@ -81,6 +81,7 @@ if (scenes.includes('bot')) {
       if (dc > 0.25) { dir = { x: (0.5 - s.x) / dc, y: (0.5 - s.y) / dc }; }
       for (const sl of g.slicks) { const d = Math.hypot(s.x - sl.x, s.y - sl.y); if (d < sl.r * 1.6) dir = { x: (s.x - sl.x) / d, y: (s.y - sl.y) / d }; }
       if (g.fish.state === 'rise') { const d = Math.hypot(s.x - g.fish.tx, s.y - g.fish.ty) + 1e-3; dir = { x: (s.x - g.fish.tx) / d, y: (s.y - g.fish.ty) / d }; }
+      else if (g.fish.visible && g.fish.state === 'stalk') { const d = Math.hypot(s.x - g.fish.x, s.y - g.fish.y); if (d < 0.14) dir = { x: (s.x - g.fish.x) / d, y: (s.y - g.fish.y) / d }; }
       // hunt the nearest gnat when hungry
       if (s.hunger < 0.6) { let best = null, bd = 1; for (const gn of g.gnats) { if (gn.state !== 'struggle') continue; const d = Math.hypot(gn.x - s.x, gn.y - s.y); if (d < bd) { bd = d; best = gn; } } if (best && bd < 0.3) dir = { x: (best.x - s.x) / bd, y: (best.y - s.y) / bd }; }
       g.setInput(dir);
@@ -89,7 +90,7 @@ if (scenes.includes('bot')) {
       window.__gw.advance(step); t += step;
       if (Math.round(t * 6) % 60 === 0) log.push([Math.round(t), +s.tension.toFixed(2), +s.hunger.toFixed(2), g.hud.phase, g.stats.cancels, g.stats.gnats]);
     }
-    return { end: g.state, t: +t.toFixed(1), score: g.score | 0, stats: g.stats, log };
+    return { end: g.state, cause: g.cause, dmg: g.dmg, t: +t.toFixed(1), score: g.score | 0, stats: g.stats, log };
   });
   console.log('BOT', JSON.stringify(res));
 }
