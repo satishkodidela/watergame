@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const order = ['gl', 'rng', 'worlds', 'levels', 'skeletons', 'shaders', 'water', 'renderer', 'input', 'audio', 'game', 'main'];
+const order = ['gl', 'rng', 'platform', 'worlds', 'levels', 'skeletons', 'shaders', 'water', 'renderer', 'input', 'audio', 'game', 'main'];
 let js = '';
 for (const name of order) {
   let src = fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8');
