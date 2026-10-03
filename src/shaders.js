@@ -22,6 +22,7 @@ uniform float uC2;
 uniform float uDamp;
 uniform float uNu;
 uniform float uPondR;
+uniform float uEdgeWall;
 uniform int uNumImp;
 uniform vec4 uImp[16];   // x, y, radius, amp
 uniform vec4 uImpB[16];  // type(0 disc,1 ring), ringWidth, 0, 0
@@ -45,7 +46,7 @@ void main(){
   // Damping is applied to the whole new height (not only the velocity term):
   // scaling the velocity term alone destabilises the grid's Nyquist mode.
   float dist = length(vUv - 0.5);
-  float edge = smoothstep(uPondR - 0.05, uPondR + 0.01, dist);
+  float edge = smoothstep(uPondR - 0.05, uPondR + 0.01, dist) * (1.0 - uEdgeWall);
 
   float zoneK = 0.0;
   for (int i = 0; i < 12; i++) {
@@ -80,6 +81,7 @@ void main(){
       hprev += im.w * exp(-q2 * q2);
     }
   }
+  if (uEdgeWall > 0.5 && dist > uPondR) { hn = 0.0; hprev = 0.0; }   // hard wall: waves reflect
   hn = clamp(hn, -1.0, 1.0);
   frag = vec4(hn, hprev, 0.0, 1.0);
 }`;
@@ -145,6 +147,8 @@ float fbm(vec2 p){
 
 export const bedFS = `#version 300 es
 precision highp float;
+uniform vec3 uSandA, uSandB, uPebbleTint, uMossColor;
+uniform float uDensity, uMoss, uRust, uGranite;
 in vec2 vUv;
 out vec4 frag;
 ${noiseLib}
@@ -185,14 +189,16 @@ vec4 pebbles(vec2 p, float scale, float density, float seed){
 void main(){
   vec2 p = vUv;
   float n = pfbm(p * 24.0, 24.0);
-  vec3 sand = mix(vec3(0.40, 0.36, 0.29), vec3(0.62, 0.56, 0.45), n);
+  vec3 sand = mix(uSandA, uSandB, n);
   sand *= 0.85 + 0.3 * pfbm(p * 96.0 + 3.0, 96.0);
   vec3 col = sand;
-  vec4 g2 = pebbles(p, 96.0, 0.65, 11.0); col = mix(col, g2.rgb, g2.a * 0.9);
-  vec4 g1 = pebbles(p, 40.0, 0.70, 3.0);  col = mix(col, g1.rgb, g1.a);
-  vec4 g0 = pebbles(p, 16.0, 0.45, 7.0);  col = mix(col, g0.rgb, g0.a);
+  vec4 g2 = pebbles(p, 96.0, 0.65 * uDensity, 11.0); g2.rgb *= uPebbleTint; col = mix(col, g2.rgb, g2.a * 0.9);
+  vec4 g1 = pebbles(p, 40.0, 0.70 * uDensity, 3.0);  g1.rgb *= uPebbleTint; col = mix(col, g1.rgb, g1.a);
+  vec4 g0 = pebbles(p, 16.0, 0.45 * uDensity, 7.0);  g0.rgb *= uPebbleTint; col = mix(col, g0.rgb, g0.a);
+  if (uGranite > 0.0) { float fl = step(0.82, pnoise(p * 512.0, 512.0)); col = mix(col, col * 0.35, fl * uGranite * (g0.a + g1.a) * 0.9); col += vec3(0.08) * uGranite * step(0.9, pnoise(p * 300.0 + 7.0, 300.0)); }
+  if (uRust > 0.0) { float ru = smoothstep(0.55, 0.8, pfbm(p * 14.0 + 5.0, 14.0)); col = mix(col, vec3(0.42, 0.22, 0.12) * (0.7 + 0.6 * pnoise(p * 200.0, 200.0)), ru * uRust * 0.7); col += vec3(0.05, 0.04, 0.03) * step(0.93, pnoise(p * 400.0 + 2.0, 400.0)) * uRust; }
   float m = smoothstep(0.52, 0.74, pfbm(p * 8.0 + 20.0, 8.0));
-  col = mix(col, vec3(0.20, 0.36, 0.16) * (0.8 + 0.4 * n), m * 0.55 * (1.0 - g0.a * 0.7));
+  col = mix(col, uMossColor * (0.8 + 0.4 * n), m * 0.55 * uMoss * (1.0 - g0.a * 0.7));
   float ao = 1.0 - 0.18 * smoothstep(0.0, 1.0, (1.0 - g0.a) * (1.0 - g1.a) * pfbm(p * 48.0 + 9.0, 48.0));
   col *= ao;
   frag = vec4(col, 1.0);
@@ -232,6 +238,8 @@ uniform float uCaustic;
 uniform vec4 uGhost;        // x, y, radius, alpha (friend/ghost marker)
 uniform float uMicro;       // wind capillary texture strength (render only)
 uniform vec2 uWind;
+uniform vec3 uTintCol, uDeepCol, uGlowA, uGlowB, uBankTint, uBankMoss, uSunCol, uZenith, uHorizon;
+uniform float uMurk, uBankMossAmt, uEdgeWall, uDepthW;
 in vec2 vUv;
 out vec4 frag;
 ${noiseLib}
@@ -244,8 +252,8 @@ float sdEll(vec2 p, vec2 r){ return (length(p / r) - 1.0) * min(r.x, r.y); }
 
 vec3 skyColor(vec3 d){
   float up = clamp(d.z, 0.0, 1.0);
-  vec3 zen = vec3(0.30, 0.52, 0.86);
-  vec3 hor = vec3(0.86, 0.90, 0.95);
+  vec3 zen = uZenith;
+  vec3 hor = uHorizon;
   vec3 day = mix(hor, zen, pow(up, 0.55));
   vec3 dawnSky = mix(vec3(1.0, 0.72, 0.42), vec3(0.58, 0.62, 0.82), pow(up, 0.5));
   day = mix(day, dawnSky, uDawn);
@@ -257,8 +265,8 @@ vec3 skyColor(vec3 d){
   storm = mix(storm, vec3(0.62, 0.63, 0.66), cloud * 0.35);
   day = mix(day, storm, uStorm);
   float sd = max(dot(d, uSun), 0.0);
-  day += vec3(1.0, 0.95, 0.85) * pow(sd, 500.0) * 3.0 * (1.0 - uStorm * 0.92);
-  day += mix(vec3(1.0, 0.95, 0.9), vec3(1.0, 0.7, 0.45), uDawn) * pow(sd, 6.0) * 0.30 * (1.0 - uStorm * 0.85);
+  day += uSunCol * pow(sd, 500.0) * 3.0 * (1.0 - uStorm * 0.92);
+  day += mix(uSunCol, vec3(1.0, 0.7, 0.45), uDawn) * pow(sd, 6.0) * 0.30 * (1.0 - uStorm * 0.85);
   vec3 night = mix(vec3(0.025, 0.035, 0.08), vec3(0.01, 0.015, 0.045), up);
   night += vec3(0.8, 0.85, 1.0) * pow(sd, 700.0) * 1.6 + vec3(0.12, 0.14, 0.22) * pow(sd, 5.0) * 0.35;
   vec2 sp = d.xy / (d.z + 0.3) * 70.0;
@@ -280,9 +288,10 @@ void main(){
   vec3 bank = vec3(0.0);
   if (waterMask < 1.0) {
     vec3 b = texture(uBed, world * 0.42).rgb;
-    b = mix(b, vec3(0.70, 0.62, 0.48), 0.30) * 1.08;
+    b = mix(b, uBankTint, 0.30) * 1.08;
     float moss = smoothstep(0.50, 0.80, fbm(world * 6.0 + 40.0));
-    b = mix(b, vec3(0.22, 0.36, 0.15), moss * 0.55);
+    b = mix(b, uBankMoss, moss * uBankMossAmt);
+    if (uEdgeWall > 0.5) { float ring = smoothstep(uPondR + 0.06, uPondR + 0.005, dPond); b = mix(b, vec3(0.10, 0.11, 0.13), ring * 0.8); b += vec3(0.35) * exp(-pow((dPond - uPondR - 0.012) / 0.006, 2.0)); }
     float wet = 1.0 - smoothstep(uPondR, uPondR + 0.035, dPond);
     b *= 1.0 - 0.45 * wet;
     bank = b;
@@ -325,7 +334,7 @@ void main(){
     }
   }
 
-  float depthF = smoothstep(uPondR, uPondR - 0.10, dPond);
+  float depthF = smoothstep(uPondR, uPondR - uDepthW, dPond);
   vec2 gs2 = g * uNormalScale;
   gs2 /= 1.0 + length(gs2) * 0.6;
   if (uMicro > 0.0) {
@@ -373,9 +382,9 @@ void main(){
   light = light * sh + vec3(rim * (0.3 + 0.7 * sunUp) * 0.9);
 
   vec3 under = bed * light;
-  vec3 tint = mix(vec3(1.0), vec3(0.50, 0.78, 0.84), depthF * 0.7);
+  vec3 tint = mix(vec3(1.0), uTintCol, depthF * 0.7);
   under *= tint;
-  under = mix(under, vec3(0.06, 0.20, 0.26), depthF * 0.42);
+  under = mix(under, uDeepCol, depthF * uMurk);
   under = mix(under, under * vec3(0.9, 0.95, 1.0), uStorm * 0.3);
 
   // ---- fish (seen through the surface) ----
@@ -437,7 +446,7 @@ void main(){
   float sp = pow(ndh, 1200.0);
   float sp2 = pow(ndh, 48.0);
   float sp3 = pow(ndh, 6.0);
-  vec3 sunCol = mix(vec3(1.0, 0.97, 0.90), vec3(1.0, 0.76, 0.50), uDawn);
+  vec3 sunCol = mix(uSunCol, vec3(1.0, 0.76, 0.50), uDawn);
   vec3 spec = sunCol * (sp * 2.2 + sp2 * 0.14 + sp3 * 0.05) * sunUp;
   spec += vec3(0.6, 0.7, 1.0) * (sp * 0.9 + sp2 * 0.08) * uNight;
 
@@ -474,7 +483,7 @@ void main(){
     float lines = smoothstep(1.2, 5.0, slopeMag);
     float crests = smoothstep(0.03, 0.10, h);
     float glowA = lines * 0.22 + crests * 0.35;
-    vec3 bio = mix(vec3(0.05, 0.5, 0.7), vec3(0.4, 0.95, 1.0), crests);
+    vec3 bio = mix(uGlowA, uGlowB, crests);
     col += bio * glowA * uNight * uGlow;
     col *= 1.0 - 0.2 * uNight * smoothstep(0.0, -0.04, h);
   }

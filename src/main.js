@@ -5,6 +5,8 @@ import { Input } from './input.js';
 import { AudioEngine } from './audio.js';
 import { Game, UPGRADES } from './game.js';
 import { dailyKey } from './rng.js';
+import { WORLDS } from './worlds.js';
+import { makeLevel, goalText, starText, MODIFIERS } from './levels.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -42,6 +44,7 @@ const renderer = new Renderer(gl, caps);
 const input = new Input(canvas);
 const audio = new AudioEngine();
 const game = new Game(water, audio);
+game.onWorld = (world) => renderer.setWorld(world);
 
 function applyTier() {
   const t = TIERS[tier];
@@ -70,6 +73,108 @@ const ui = {
   title: $('title'), end: $('end'), pause: $('pause'), hud: $('hud'), hint: $('hint'), popups: $('popups'),
   phase: $('phase'), time: $('time'), score: $('score'), best: $('best'), dailyInfo: $('daily-info'), molts: $('molts'),
 };
+const SCREENS = ['title', 'end', 'pause', 'ponds', 'levels', 'intro', 'levelend'];
+function show(name) {
+  for (const s of SCREENS) $(s).hidden = s !== name;
+  ui.hud.classList.toggle('dim', !!name);
+}
+let current = { w: 0, i: 0, recipe: null };
+function showPonds() {
+  show('ponds');
+  $('ponds-stars').textContent = `★ ${game.totalStars()}`;
+  const list = $('world-list');
+  list.innerHTML = '';
+  WORLDS.forEach((w, wi) => {
+    const unlocked = game.isWorldUnlocked(wi);
+    const el = document.createElement('button');
+    el.className = 'world' + (unlocked ? '' : ' locked');
+    el.disabled = !unlocked;
+    el.innerHTML = `<b>${w.name}</b><span>${w.tagline}</span><i>${unlocked ? `★ ${game.worldStars(wi)} / ${w.levels * 3}` : `★ ${w.starsToUnlock} to open`}</i>`;
+    el.onclick = () => showLevels(wi);
+    list.appendChild(el);
+  });
+  const season = document.createElement('button');
+  const sOpen = game.isWorldUnlocked(WORLDS.length);
+  season.className = 'world' + (sOpen ? '' : ' locked');
+  season.disabled = !sOpen;
+  season.innerHTML = `<b>Storm Season</b><span>endless generated storms, each harder</span><i>${sOpen ? `level ${game.save.campaign.season + 1}` : 'clear the Tarn'}</i>`;
+  season.onclick = () => showIntro(WORLDS.length, game.save.campaign.season);
+  list.appendChild(season);
+}
+function showLevels(wi) {
+  current.w = wi;
+  show('levels');
+  const w = WORLDS[wi];
+  $('levels-title').textContent = w.name;
+  $('levels-sub').textContent = w.tagline;
+  $('levels-stars').textContent = `★ ${game.worldStars(wi)} / ${w.levels * 3}`;
+  const grid = $('level-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < w.levels; i++) {
+    const st = game.levelStars(wi, i);
+    const unlocked = game.isLevelUnlocked(wi, i);
+    const b = document.createElement('button');
+    b.className = 'tile' + (unlocked ? '' : ' locked') + (i === w.levels - 1 ? ' boss' : '');
+    b.disabled = !unlocked;
+    b.innerHTML = `<b>${i + 1}</b><i>${'★'.repeat(st)}${'☆'.repeat(3 - st)}</i>`;
+    b.onclick = () => showIntro(wi, i);
+    grid.appendChild(b);
+  }
+}
+function showIntro(wi, i) {
+  const r = makeLevel(wi, i);
+  current = { w: wi, i, recipe: r };
+  show('intro');
+  const wname = r.season ? 'Storm Season' : WORLDS[wi].name;
+  $('intro-world').textContent = `${wname} · ${i + 1}${r.boss ? ' · boss' : ''}`;
+  $('intro-title').textContent = r.name;
+  $('intro-goal').textContent = `${goalText(r.goal)} · ${fmtTime(r.duration)}`;
+  const earned = game.levelStars(wi, i);
+  const list = [r.goal.type === 'survive' ? 'survive' : goalText(r.goal), ...r.stars.map(starText)];
+  $('intro-stars').innerHTML = list.map((t, k) => `<li class="${k < earned ? 'lit' : ''}">${t}</li>`).join('');
+  $('intro-mod').textContent = r.modifiers.map((m) => `${MODIFIERS[m].name} · ${MODIFIERS[m].desc}`).join('   ');
+}
+function startLevel(wi, i) {
+  audio.init();
+  if (audio.master) audio.master.gain.value = soundOn ? 0.8 : 0;
+  show(null);
+  game.startLevel(wi, i);
+}
+$('btn-ponds').onclick = showPonds;
+$('ponds-back').onclick = () => showTitle();
+$('levels-back').onclick = () => showPonds();
+$('btn-intro-back').onclick = () => (current.w >= WORLDS.length ? showPonds() : showLevels(current.w));
+$('btn-skate').onclick = () => startLevel(current.w, current.i);
+$('btn-retry').onclick = () => startLevel(current.w, current.i);
+$('btn-next').onclick = () => {
+  const w = current.w, i = current.i + 1;
+  if (w >= WORLDS.length) startLevel(w, game.save.campaign.season);
+  else if (i < WORLDS[w].levels) startLevel(w, i);
+  else showPonds();
+};
+$('btn-le-ponds').onclick = () => { game.toTitle(); showPonds(); };
+
+function buildMolt(boxId, titleId) {
+  const choices = game.moltChoices();
+  const box = $(boxId), title = $(titleId);
+  box.innerHTML = '';
+  title.hidden = false;
+  if (!choices.length) { title.textContent = 'Fully molted'; return; }
+  title.textContent = 'Molt · choose one';
+  for (const k of choices) {
+    const u = UPGRADES[k];
+    const lvl = game.save.molts[k];
+    const el = document.createElement('button');
+    el.className = 'card';
+    el.innerHTML = `<b>${u.name}</b><span>${u.desc}</span><i>${'●'.repeat(lvl)}${'○'.repeat(u.max - lvl)}</i>`;
+    el.onclick = () => {
+      game.applyMolt(k);
+      for (const c of box.children) { c.disabled = true; c.classList.toggle('picked', c === el); }
+      title.textContent = 'Molted · ' + u.name;
+    };
+    box.appendChild(el);
+  }
+}
 let paused = false;
 let soundOn = true;
 try { soundOn = localStorage.getItem('glasswater.sound') !== 'off'; } catch (_) { /* ignore */ }
@@ -81,7 +186,8 @@ function moltSummary() {
   return parts.length ? parts.join('  ') : 'no molts yet';
 }
 function showTitle() {
-  ui.title.hidden = false; ui.end.hidden = true; ui.pause.hidden = true; ui.hud.classList.add('dim');
+  show('title');
+  $('ponds-info').textContent = game.totalStars() ? `★ ${game.totalStars()} · ${WORLDS.filter((w, i) => game.isWorldUnlocked(i)).length} of ${WORLDS.length} ponds open` : 'six ponds · 150 levels · then the Storm Season';
   ui.best.textContent = game.save.best ? `best ${game.save.best}` : '';
   const d = game.save.daily;
   ui.dailyInfo.textContent = dailyKey() + (d && d.key === dailyKey() ? ` · your best ${d.best}` : '');
@@ -92,7 +198,7 @@ function showTitle() {
 function start(mode) {
   audio.init();
   audio.master && (audio.master.gain.value = soundOn ? 0.8 : 0);
-  ui.title.hidden = true; ui.end.hidden = true; ui.hud.classList.remove('dim');
+  show(null);
   game.startRun(mode);
 }
 $('btn-daily').onclick = () => start('daily');
@@ -113,7 +219,7 @@ $('snd').onclick = () => {
   $('snd').textContent = soundOn ? 'sound on' : 'sound off';
 };
 $('btn-resume').onclick = () => setPaused(false);
-$('btn-quit').onclick = () => { setPaused(false); game.toTitle(); showTitle(); };
+$('btn-quit').onclick = () => { setPaused(false); const wasLevel = !!game.level; game.toTitle(); if (wasLevel) showPonds(); else showTitle(); };
 $('btn-again').onclick = () => start(game.mode);
 $('btn-endless').onclick = () => { ui.end.hidden = true; ui.hud.classList.remove('dim'); game.continueEndless(); };
 $('btn-title').onclick = () => { game.toTitle(); showTitle(); };
@@ -130,11 +236,33 @@ window.addEventListener('keydown', (e) => {
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.state === 'playing') setPaused(true); });
 canvas.addEventListener('pointerdown', () => audio.init(), { once: true });
 
+const CAUSES = { wave: 'A wave tipped you.', slick: 'The slick let go of you.', hunger: 'You starved.', weight: 'Too heavy for the skin.', fish: 'The god below took you.', frog: 'The frog.', bug: 'A backswimmer found you.' };
+function onLevelEnd(res) {
+  show('levelend');
+  const r = res.recipe;
+  $('le-world').textContent = `${r.season ? 'Storm Season' : WORLDS[res.w].name} · ${res.i + 1} · ${r.name}`;
+  $('le-title').textContent = res.cleared ? (r.boss ? 'Boss cleared.' : 'Cleared.') : (res.reason === 'timeout' ? 'The storm passed first.' : 'You sank.');
+  $('le-sub').textContent = res.cleared
+    ? (res.nStars === 3 ? 'All three stars.' : `${res.nStars} star${res.nStars === 1 ? '' : 's'}.`) + (res.nStars > res.prevStars ? ` ★ ${res.totalStars} in all.` : '')
+    : (res.reason === 'timeout' ? `${goalText(r.goal)} · not this time.` : (CAUSES[res.cause] || ''));
+  const starEls = $('le-stars').children;
+  for (let k = 0; k < 3; k++) starEls[k].classList.toggle('on', !!res.stars[k]);
+  $('le-score').textContent = res.score;
+  const st = res.stats;
+  $('le-stats').innerHTML = [['time', fmtTime(res.time)], ['eaten', st.gnats], ['cancels', st.cancels], ['perfect', st.perfect], ['best combo', st.bestCombo]]
+    .map(([k, v]) => `<span><b>${v}</b>${k}</span>`).join('');
+  $('le-molt').innerHTML = '';
+  $('le-molt-title').hidden = true;
+  if (res.moltOffered) buildMolt('le-molt', 'le-molt-title');
+  const hasNext = res.cleared && (r.season || res.i + 1 < WORLDS[res.w].levels);
+  $('btn-next').hidden = !hasNext;
+  $('btn-next').textContent = r.season ? 'Next storm' : 'Next';
+}
 game.onEnd = (res) => {
-  ui.hud.classList.add('dim');
-  ui.end.hidden = false;
+  if (res.kind === 'level') { onLevelEnd(res); return; }
+  show('end');
   $('end-title').textContent = res.reason === 'survived' ? (game.endless ? 'The storm took you.' : 'Sunrise.') : 'You sank.';
-  const causes = { wave: 'A wave tipped you.', slick: 'The slick let go of you.', hunger: 'You starved.', weight: 'Too heavy for the skin.', fish: 'The god below took you.', frog: 'The frog.', bug: 'A backswimmer found you.' };
+  const causes = CAUSES;
   $('end-sub').textContent = res.reason === 'survived' && !game.endless
     ? 'The camera pulls back. It was a puddle all along.'
     : `${causes[res.cause] || ''} You lasted ${fmtTime(res.time)}.`.trim();
@@ -146,28 +274,7 @@ game.onEnd = (res) => {
   ].map(([k, v]) => `<span><b>${v}</b>${k}</span>`).join('');
   $('end-best').textContent = res.newBest ? 'new best' : (res.newDaily ? 'new daily best' : '');
   $('btn-endless').hidden = !res.endlessOffered;
-  // molt
-  const choices = game.moltChoices();
-  const box = $('molt');
-  box.innerHTML = '';
-  if (choices.length) {
-    $('molt-title').textContent = 'Molt · choose one';
-    for (const k of choices) {
-      const u = UPGRADES[k];
-      const lvl = game.save.molts[k];
-      const el = document.createElement('button');
-      el.className = 'card';
-      el.innerHTML = `<b>${u.name}</b><span>${u.desc}</span><i>${'●'.repeat(lvl)}${'○'.repeat(u.max - lvl)}</i>`;
-      el.onclick = () => {
-        game.applyMolt(k);
-        for (const c of box.children) { c.disabled = true; c.classList.toggle('picked', c === el); }
-        $('molt-title').textContent = 'Molted · ' + u.name;
-      };
-      box.appendChild(el);
-    }
-  } else {
-    $('molt-title').textContent = 'Fully molted';
-  }
+  buildMolt('molt', 'molt-title');
 };
 
 // popup pool
@@ -201,8 +308,18 @@ function updateDom(dt) {
   drawPopups();
   if (domT < 0.1) return;
   domT = 0;
-  ui.phase.textContent = game.hud.phase;
-  ui.time.textContent = fmtTime(game.hud.time);
+  if (game.level) {
+    ui.phase.textContent = game.hud.levelLabel;
+    ui.time.textContent = fmtTime(Math.ceil(game.hud.remaining));
+    $('goal').textContent = game.hud.goal;
+    const st = game.hud.stars;
+    if (st) $('hstars').innerHTML = st.map((on) => `<span class="${on ? 'on' : ''}">★</span>`).join('');
+  } else {
+    ui.phase.textContent = game.hud.phase;
+    ui.time.textContent = fmtTime(game.hud.time);
+    $('goal').textContent = '';
+    $('hstars').innerHTML = '';
+  }
   ui.score.textContent = game.hud.score;
   if (game.hud.hint !== ui.hint.textContent) ui.hint.textContent = game.hud.hint;
   ui.hint.style.opacity = game.hud.hintT > 0 ? Math.min(1, game.hud.hintT) : 0;
@@ -282,6 +399,8 @@ window.__gw = {
   },
   pulse() { game.pulse(); },
   jump(t) { game.time = t; },
+  startLevel(w, i) { show(null); game.startLevel(w, i); },
+  show, showPonds, showLevels, showIntro,
 };
 if (params.get('autostart')) {
   setTimeout(() => { soundOn = false; start(params.get('mode') || 'daily'); if (params.get('t')) game.time = +params.get('t'); }, 50);

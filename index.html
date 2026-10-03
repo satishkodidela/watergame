@@ -56,6 +56,39 @@
   .card.picked { border-color: var(--accent); background: rgba(255,210,122,.15); }
   .card:disabled:not(.picked) { opacity: .4; }
   #err { color: #fff; }
+  .panel.wide { max-width: 560px; max-height: calc(100% - 24px); overflow-y: auto; text-align: left; }
+  .bar { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--dim); margin-bottom: 6px; }
+  .bar button, .link { background: none; border: none; color: var(--dim); font: inherit; cursor: pointer; padding: 4px 0; }
+  .bar button:hover, .link:hover { color: var(--ink); }
+  .eyebrow { font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+  #world-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .world { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; align-items: center; text-align: left; width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: var(--ink); font: inherit; cursor: pointer; }
+  .world:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+  .world b { font-size: 16px; font-weight: 600; }
+  .world span { grid-column: 1; font-size: 12px; color: var(--dim); }
+  .world i { grid-column: 2; grid-row: 1 / span 2; font-style: normal; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .world.locked { opacity: .45; }
+  .world.locked i { color: var(--dim); }
+  #level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+  .tile { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: var(--ink); font: inherit; cursor: pointer; }
+  .tile:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+  .tile b { font-size: 17px; font-weight: 500; }
+  .tile i { font-style: normal; font-size: 10px; letter-spacing: .1em; color: var(--accent); }
+  .tile.locked { opacity: .35; }
+  .tile.boss { border-color: rgba(255,210,122,.5); }
+  .tile.boss b::after { content: ' ◆'; font-size: 10px; color: var(--accent); }
+  #intro-stars { list-style: none; padding: 0; margin: 10px 0; font-size: 14px; color: var(--ink); line-height: 1.8; }
+  #intro-stars li::before { content: '★ '; color: var(--accent); }
+  #intro-stars li.lit { color: var(--ink); }
+  #intro-mod { color: var(--accent); font-size: 13px; min-height: 0; }
+  .stars { font-size: 34px; letter-spacing: .15em; margin: 6px 0; color: rgba(255,255,255,.18); }
+  .stars span.on { color: var(--accent); text-shadow: 0 0 14px rgba(255,210,122,.6); }
+  #le-score { font-size: 40px; font-weight: 200; margin: 2px 0; }
+  #le-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin: 8px 0 4px; font-size: 12px; color: var(--dim); }
+  #le-stats b { display: block; font-size: 16px; color: var(--ink); font-weight: 500; }
+  #hud .c { position: absolute; left: 50%; transform: translateX(-50%); top: 0; text-align: center; font-size: 14px; letter-spacing: .06em; color: var(--ink); }
+  #hud .c #hstars { display: block; font-size: 12px; letter-spacing: .2em; color: rgba(255,255,255,.3); margin-top: 2px; }
+  #hud .c #hstars span.on { color: var(--accent); }
   @media (max-height: 640px) { .panel { padding: 16px 18px; } h1 { font-size: 34px; } .how { display: none; } }
 </style>
 </head>
@@ -64,6 +97,7 @@
 
 <div id="hud" class="dim">
   <div class="l"><span id="phase">dawn</span><span id="time">0:00</span></div>
+  <div class="c"><span id="goal"></span><span id="hstars"></span></div>
   <span id="score">0</span>
 </div>
 <div id="hint"></div>
@@ -73,8 +107,11 @@
   <div class="panel">
     <h1>GLASSWATER<small>one storm · one night</small></h1>
     <p>You are a water strider. The skin of the pond holds you up. Every raindrop is a meteor, every ripple a wave, and the waves add up or cancel out.</p>
-    <button class="btn primary" id="btn-daily">Daily Storm<small id="daily-info"></small></button>
-    <button class="btn" id="btn-free">Free Storm<small>a new sky every time</small></button>
+    <button class="btn primary" id="btn-ponds">Ponds<small id="ponds-info">six ponds · 150 levels · then the Storm Season</small></button>
+    <div class="row">
+      <button class="btn" id="btn-daily">Daily Storm<small id="daily-info"></small></button>
+      <button class="btn" id="btn-free">Free Storm<small>a new sky every time</small></button>
+    </div>
     <div class="how">
       <b>drag</b> to skate &nbsp;·&nbsp; <b>tap</b> to pulse<br>
       pulse on <span class="d">dark</span> against a <span class="w">bright</span> crest to cancel it
@@ -98,6 +135,55 @@
       <button class="btn" id="btn-endless" hidden>Endless</button>
     </div>
     <button class="btn" id="btn-title">Title</button>
+  </div>
+</div>
+
+<div id="ponds" class="screen" hidden>
+  <div class="panel wide">
+    <div class="bar"><button id="ponds-back">‹ title</button><span id="ponds-stars">★ 0</span></div>
+    <h2>Ponds</h2>
+    <p>Each pond is its own world. Stars open the next one.</p>
+    <div id="world-list"></div>
+  </div>
+</div>
+
+<div id="levels" class="screen" hidden>
+  <div class="panel wide">
+    <div class="bar"><button id="levels-back">‹ ponds</button><span id="levels-stars"></span></div>
+    <h2 id="levels-title">Puddle</h2>
+    <p id="levels-sub"></p>
+    <div id="level-grid"></div>
+  </div>
+</div>
+
+<div id="intro" class="screen" hidden>
+  <div class="panel">
+    <div class="eyebrow" id="intro-world">Puddle · 1</div>
+    <h2 id="intro-title">Survive</h2>
+    <p id="intro-goal"></p>
+    <ul id="intro-stars"></ul>
+    <p id="intro-mod"></p>
+    <div id="skel-row"></div>
+    <button class="btn primary" id="btn-skate">Skate</button>
+    <button class="btn" id="btn-intro-back">Back</button>
+  </div>
+</div>
+
+<div id="levelend" class="screen" hidden>
+  <div class="panel">
+    <div class="eyebrow" id="le-world"></div>
+    <h2 id="le-title">Cleared</h2>
+    <p id="le-sub"></p>
+    <div id="le-stars" class="stars"><span>★</span><span>★</span><span>★</span></div>
+    <div id="le-score">0</div>
+    <div id="le-stats"></div>
+    <div id="le-molt-title" class="eyebrow" hidden></div>
+    <div id="le-molt"></div>
+    <div class="row">
+      <button class="btn primary" id="btn-next">Next</button>
+      <button class="btn" id="btn-retry">Retry</button>
+    </div>
+    <button class="btn" id="btn-le-ponds">Ponds</button>
   </div>
 </div>
 

@@ -1,6 +1,6 @@
 import { Program, createTarget, destroyTarget, bindTarget, drawFullscreen } from './gl.js';
 import { quadVS, bedFS, waterFS, spriteVS, spriteFS, downFS, blurFS, compositeFS, debugSimFS } from './shaders.js';
-import { POND_R } from './water.js';
+import { CLASSIC_WORLD } from './worlds.js';
 
 const MAX_SPRITES = 512;
 const STRIDE = 12; // floats per sprite
@@ -23,15 +23,25 @@ export class Renderer {
     this.feet = new Float32Array(6 * 4);
     this.slicks = new Float32Array(8 * 4);
     this._initSprites();
-    this._bakeBed();
+    this.world = CLASSIC_WORLD;
+    this.bedTex = null;
+    this.bakeBed(CLASSIC_WORLD.bed);
   }
 
-  _bakeBed() {
+  setWorld(world) {
+    if (this.world === world && this.bedTex) return;
+    this.world = world;
+    this.bakeBed(world.bed);
+  }
+
+  bakeBed(bed) {
     const gl = this.gl;
     const size = Math.min(1024, this.caps.maxTex);
     this.bed = createTarget(gl, size, size, { internalFormat: gl.RGBA8, filter: gl.LINEAR, wrap: gl.REPEAT });
     bindTarget(gl, this.bed);
-    this.progBed.use();
+    const b = this.progBed.use();
+    b.v3('uSandA', ...bed.sandA).v3('uSandB', ...bed.sandB).v3('uPebbleTint', ...bed.tint).v3('uMossColor', ...bed.mossColor);
+    b.f('uDensity', bed.density).f('uMoss', bed.moss).f('uRust', bed.rust || 0).f('uGranite', bed.granite || 0);
     drawFullscreen(gl);
     gl.bindTexture(gl.TEXTURE_2D, this.bed.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -49,6 +59,7 @@ export class Renderer {
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     destroyTarget(gl, this.bed);
+    if (this.bedTex) gl.deleteTexture(this.bedTex);
     this.bedTex = mipTex;
   }
 
@@ -137,7 +148,13 @@ export class Renderer {
     p.f('uTexel', water.texel).f('uTime', view.time);
     p.f('uNight', env.night).f('uStorm', env.storm).f('uDawn', env.dawn);
     p.v3('uSun', env.sun[0], env.sun[1], env.sun[2]);
-    p.f('uPondR', POND_R);
+    p.f('uPondR', water.pondR);
+    const W = view.world || this.world;
+    p.v3('uTintCol', ...W.water.tint).v3('uDeepCol', ...W.water.deep).f('uMurk', W.water.murk).f('uDepthW', W.water.depth);
+    p.v3('uGlowA', ...W.glow.a).v3('uGlowB', ...W.glow.b);
+    p.v3('uBankTint', ...W.bank.tint).v3('uBankMoss', ...W.bank.mossColor).f('uBankMossAmt', W.bank.moss);
+    p.v3('uSunCol', ...W.light.sun).v3('uZenith', ...W.light.zenith).v3('uHorizon', ...W.light.horizon);
+    p.f('uEdgeWall', water.edgeWall);
     const s = view.strider;
     for (let i = 0; i < 6; i++) {
       const f = s.feet[i];

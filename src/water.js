@@ -13,6 +13,8 @@ export class Water {
     this.c2 = 0.46;
     this.damp = 0.998;
     this.nu = 0.01;
+    this.pondR = POND_R;
+    this.edgeWall = 0;
     this.progSim = new Program(gl, quadVS, simFS, 'sim');
     this.progCopy = new Program(gl, quadVS, copyFS, 'copy');
     this.progRead = new Program(gl, quadVS, readbackFS, 'readback');
@@ -78,7 +80,7 @@ export class Water {
   step(substeps = 1) {
     const gl = this.gl;
     const p = this.progSim.use();
-    p.f('uTexel', this.texel).f('uC2', this.c2).f('uDamp', this.damp).f('uNu', this.nu).f('uPondR', POND_R);
+    p.f('uTexel', this.texel).f('uC2', this.c2).f('uDamp', this.damp).f('uNu', this.nu).f('uPondR', this.pondR).f('uEdgeWall', this.edgeWall);
     const nz = Math.min(12, this.zones.length);
     for (let i = 0; i < nz; i++) {
       const z = this.zones[i];

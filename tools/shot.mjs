@@ -29,7 +29,7 @@ const scenes = (process.env.SCENES || 'title,dawn,glass,wind,rain,night,downpour
 if (scenes.includes('title')) { await page.evaluate(() => window.__gw.advance(6)); await page.waitForTimeout(300); await shot('01-title'); }
 
 await page.evaluate(() => { window.__gw.start('daily'); window.__gw.game.god = true; });
-const run = async (fn) => page.evaluate(fn);
+const run = async (fn, arg) => page.evaluate(fn, arg);
 const settle = async () => { for (let i = 0; i < 3; i++) await page.waitForTimeout(120); };
 
 if (scenes.includes('dawn')) {
@@ -83,6 +83,63 @@ if (scenes.includes('input')) {
   await page.evaluate(() => { const g = window.__gw; g.renderer.setQuality({ renderScale: 0.8, dof: false, bloom: true, blurDiv: 8, micro: false }); g.water.resize(128); g.advance(1); });
   await settle(); await shot('13-after-tier-drop');
   const err = await page.evaluate(() => window.__gw.renderer.gl ? 0 : 0);
+}
+// ---- campaign scenes ----
+const botStep = `
+  const g = window.__gw.game; const s = g.strider; const step = 1 / 6;
+  let dir = window.__botDir || { x: 0, y: 0 }; window.__botTurn = (window.__botTurn || 0) - step;
+  if (window.__botTurn <= 0) { window.__botTurn = 1 + Math.random() * 2; const a = Math.random() * 6.283; dir = { x: Math.cos(a) * 0.5, y: Math.sin(a) * 0.5 }; }
+  const dc = Math.hypot(s.x - 0.5, s.y - 0.5);
+  if (dc > g.pondR - 0.2) dir = { x: (0.5 - s.x) / dc, y: (0.5 - s.y) / dc };
+  const goal = g.level ? g.level.recipe.goal : { type: 'survive' };
+  // objectives
+  if (goal.type === 'cross') { const m = g.markers.find((k) => !k.done); if (m) { const d = Math.hypot(m.x - s.x, m.y - s.y) + 1e-4; dir = { x: (m.x - s.x) / d, y: (m.y - s.y) / d }; } }
+  if (goal.type === 'eat' || s.hunger < 0.5) { let best = null, bd = 1; for (const gn of g.gnats) { if (gn.state !== 'struggle') continue; const d = Math.hypot(gn.x - s.x, gn.y - s.y); if (d < bd) { bd = d; best = gn; } } if (best && bd < 0.45) dir = { x: (best.x - s.x) / bd, y: (best.y - s.y) / bd }; }
+  for (const sl of g.slicks) { const d = Math.hypot(s.x - sl.x, s.y - sl.y); if (d < sl.r * 1.6) dir = { x: (s.x - sl.x) / d, y: (s.y - sl.y) / d }; }
+  if (g.fish.state === 'rise') { const d = Math.hypot(s.x - g.fish.tx, s.y - g.fish.ty) + 1e-3; dir = { x: (s.x - g.fish.tx) / d, y: (s.y - g.fish.ty) / d }; }
+  else if (g.fish.visible && g.fish.state === 'stalk' && goal.type !== 'scare') { const d = Math.hypot(s.x - g.fish.x, s.y - g.fish.y); if (d < 0.14) dir = { x: (s.x - g.fish.x) / d, y: (s.y - g.fish.y) / d }; }
+  if (g.frog.visible && g.frog.state !== 'away') { const d = Math.hypot(s.x - g.frog.x, s.y - g.frog.y); if (d < 0.26) dir = { x: (s.x - g.frog.x) / d, y: (s.y - g.frog.y) / d }; }
+  window.__botDir = dir; g.setInput(dir);
+  // pulses: cancel on dark against a crest; strike on bright when hunting
+  if ((g.incoming || 0) > 0.02 && g.phaseSign() < 0 && s.pulseCool <= 0) g.pulse();
+  else if (goal.type === 'scare' && g.fish.visible && g.fish.depth > 0.45 && Math.hypot(s.x - g.fish.x, s.y - g.fish.y) < 0.12 && g.phaseSign() > 0 && s.pulseCool <= 0) g.pulse();
+  else if (goal.type === 'stun') { const b = g.bugs[0]; if (b && Math.hypot(s.x - b.x, s.y - b.y) < 0.1 && g.phaseSign() > 0 && s.pulseCool <= 0) g.pulse(); }
+  window.__gw.advance(step);
+`;
+if (scenes.includes('level')) {
+  await run(() => { window.__gw.startLevel(0, 2); window.__gw.game.god = true; window.__gw.advance(12); });
+  await settle(); await shot('20-level-glass');
+  await run(() => { window.__gw.startLevel(0, 6); window.__gw.game.god = true; window.__gw.advance(5); });
+  await settle(); await shot('21-level-cross');
+  await run(() => { window.__gw.show('intro'); window.__gw.showIntro(0, 6); });
+  await page.waitForTimeout(300); await shot('22-intro');
+  await run(() => { window.__gw.showLevels(0); });
+  await page.waitForTimeout(300); await shot('23-levels');
+  await run(() => { window.__gw.showPonds(); });
+  await page.waitForTimeout(300); await shot('24-ponds');
+}
+if (scenes.includes('worlds')) {
+  for (let w = 0; w < 6; w++) {
+    await run((w) => { window.__gw.show(null); window.__gw.startLevel(w, 3); window.__gw.game.god = true; window.__gw.advance(14); }, w);
+    await settle(); await shot(`30-world-${w}`);
+  }
+}
+if (scenes.includes('calib')) {
+  const list = (process.env.LEVELS || '0:0,0:1,0:2,0:4,0:6,0:9,0:14,0:19,0:24').split(',').map((s) => s.split(':').map(Number));
+  const out = [];
+  for (const [w, i] of list) {
+    const res = await page.evaluate(async ([w, i, botStep]) => {
+      const g = window.__gw.game; window.__gw.show(null); window.__gw.startLevel(w, i); g.god = false;
+      window.__botDir = null; window.__botTurn = 0;
+      const fn = new Function(botStep);
+      let guard = 0;
+      while (g.state !== 'ended' && guard++ < 6 * 200) fn();
+      const r = g.level.recipe;
+      return { id: r.id, tpl: r.template, goal: r.goal.type + (r.goal.n ? ' ' + r.goal.n : ''), D: r.D, dur: r.duration, rain: +r.weather.rainPeak.toFixed(2), state: g.state, t: +g.time.toFixed(0), tension: +g.strider.tension.toFixed(2), cause: g.cause, stars: g.save.campaign.stars[r.id], cancels: g.stats.cancels, hits: g.stats.hits };
+    }, [w, i, botStep]);
+    out.push(res);
+    console.log('CALIB', JSON.stringify(res));
+  }
 }
 if (scenes.includes('bot')) {
   const res = await page.evaluate(() => {

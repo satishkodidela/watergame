@@ -1,5 +1,6 @@
-import { POND_R } from './water.js';
 import { mulberry32, dailySeed, dailyKey } from './rng.js';
+import { WORLDS, CLASSIC_WORLD } from './worlds.js';
+import { classicEnv, makeLevel, LevelScript, STARS, goalProgress, levelId, RUN_END } from './levels.js';
 
 export const UPGRADES = {
   legs:      { name: 'Longer legs',      desc: 'Skate faster',                         max: 3 },
@@ -13,19 +14,7 @@ const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
-function kf(t, pts) {
-  if (t <= pts[0][0]) return pts[0][1];
-  for (let i = 1; i < pts.length; i++) {
-    if (t <= pts[i][0]) {
-      const [t0, v0] = pts[i - 1], [t1, v1] = pts[i];
-      return lerp(v0, v1, (t - t0) / (t1 - t0));
-    }
-  }
-  return pts[pts.length - 1][1];
-}
-
-export const PHASES = [['dawn', 0], ['wind', 60], ['rain', 150], ['night', 240], ['downpour', 330], ['sunrise', 420]];
-const LOOP_START = 60, LOOP_END = 420, RUN_END = 432;
+export { WORLDS };
 const PHASE_PERIOD = 1.2;          // pulse metronome period (s)
 const STORE_KEY = 'glasswater.v1';
 
@@ -49,7 +38,13 @@ export class Game {
     this.time = 0;
     this.wall = 0;
     this.events = [];       // UI messages {type, ...}
-    this.hud = { phase: 'dawn', time: 0, score: 0, hint: '', hintT: 0 };
+    this.hud = { phase: 'dawn', time: 0, score: 0, hint: '', hintT: 0, goal: '', remaining: -1, stars: null, levelLabel: '' };
+    this.world = CLASSIC_WORLD;
+    this.script = null;
+    this.onWorld = null;
+    this.level = null;
+    this.markers = [];
+    this.skeletonMult = 1;
     this.onEnd = null;
     this.inputDir = { x: 0, y: 0 };
     this.cssW = 1; this.cssH = 1;
@@ -72,9 +67,10 @@ export class Game {
         daily: s.daily || null,   // {key, best, trace}
         ghost: s.ghost || null,
         ghostScore: s.ghostScore || 0,
+        campaign: Object.assign({ stars: {}, best: {}, skeleton: 'common', season: 0 }, s.campaign || {}),
       };
     } catch (_) {
-      return { best: 0, bestEndless: 0, molts: { legs: 0, hairs: 0, pulse: 0, sense: 0, resonance: 0 }, runs: 0, clears: 0, daily: null, ghost: null, ghostScore: 0 };
+      return { best: 0, bestEndless: 0, molts: { legs: 0, hairs: 0, pulse: 0, sense: 0, resonance: 0 }, runs: 0, clears: 0, daily: null, ghost: null, ghostScore: 0, campaign: { stars: {}, best: {}, skeleton: 'common', season: 0 } };
     }
   }
   _store() { try { localStorage.setItem(STORE_KEY, JSON.stringify(this.save)); } catch (_) { /* private mode */ } }
@@ -87,7 +83,11 @@ export class Game {
     this.loop = 0;
     this.endless = false;
     this.score = 0;
-    this.stats = { gnats: 0, cancels: 0, perfect: 0, fishScared: 0, bugsStunned: 0, bestCombo: 0, loops: 0, survived: 0 };
+    this.stats = { gnats: 0, cancels: 0, perfect: 0, fishScared: 0, bugsStunned: 0, bestCombo: 0, loops: 0, survived: 0, hits: 0, maxWeight: 0, slickTouches: 0, markers: 0 };
+    this.level = null;
+    this.markers = [];
+    this.envOverride = null;
+    this.hud.goal = ''; this.hud.remaining = -1; this.hud.stars = null; this.hud.levelLabel = '';
     this.combo = 0;
     this.comboT = 0;
     this.gnats = [];
@@ -104,7 +104,7 @@ export class Game {
     this.ghostT = 0;
     this.ghostI = 0;
     this.ghostPos = null;
-    this.spawnAcc = { gnat: 0, rain: 0, slick: 0, wind: 0 };
+    this.spawnAcc = { gnat: 0, rain: 0, slick: 0, wind: 0, aimed: 0 };
     this.teach = { drops: [18, 36, 50], i: 0, fish: false, bug: false, slick: false };
     this.fish = { x: 0.5, y: 0.2, heading: 0, size: 0.09, depth: 0.1, mouth: 0, visible: false, state: 'hidden', t: 14, tx: 0.5, ty: 0.5, cool: 0 };
     this.frog = { x: 0, y: 0, ang: 0, face: 0, state: 'away', t: 20, glint: 0, visible: false, cool: 0 };
@@ -125,11 +125,130 @@ export class Game {
   }
 
   levels() { return this.save.molts; }
+  get pondR() { return this.water.pondR; }
+
+  applyWorld(world) {
+    this.world = world;
+    this.water.pondR = world.pondR;
+    this.water.edgeWall = world.edge === 'wall' ? 1 : 0;
+    if (this.onWorld) this.onWorld(world);
+  }
+
+  // ---- campaign ----------------------------------------------------------
+  totalStars() { return Object.values(this.save.campaign.stars).reduce((a, b) => a + b, 0); }
+  levelStars(w, i) { return this.save.campaign.stars[levelId(w, i)] || 0; }
+  worldStars(w) { let s = 0; for (let i = 0; i < WORLDS[w].levels; i++) s += this.levelStars(w, i); return s; }
+  worldCleared(w) { return this.levelStars(w, WORLDS[w].levels - 1) > 0; }
+  isWorldUnlocked(w) {
+    if (w >= WORLDS.length) return this.worldCleared(WORLDS.length - 1);
+    return this.totalStars() >= WORLDS[w].starsToUnlock;
+  }
+  isLevelUnlocked(w, i) {
+    if (w >= WORLDS.length) return i <= this.save.campaign.season;
+    if (i === 0) return this.isWorldUnlocked(w);
+    return this.levelStars(w, i - 1) > 0;
+  }
+
+  startLevel(w, i) {
+    const recipe = makeLevel(w, i);
+    const world = WORLDS[recipe.season ? w % WORLDS.length : w];
+    this.mode = 'level';
+    this.applyWorld(world);
+    this._resetWorld(recipe.seed);
+    this.script = new LevelScript(recipe);
+    this.level = { recipe, w, i, remaining: recipe.duration };
+    const lv = this.levels();
+    this.senseR = 0.16 + 0.05 * lv.sense;
+    const s = this.strider;
+    if (recipe.modifiers.includes('heavy')) s.weight = 1.05;
+    if (recipe.modifiers.includes('lowTension')) s.tension = 0.5;
+    if (recipe.goal.type === 'cross') this._makeMarkers(recipe.goal.n);
+    this.teach.drops = [];
+    this.fish.t = 5;
+    this.frog.t = 6;
+    this.hud.levelLabel = `${recipe.season ? 'Storm Season' : world.name} · ${i + 1}`;
+    this.attract = false;
+    this.state = 'playing';
+    this.save.runs++;
+    this._store();
+    if (recipe.hint) this.hint(recipe.hint, 4.5);
+  }
+
+  _makeMarkers(n) {
+    this.markers = [];
+    let px = 0.5, py = 0.5;
+    for (let k = 0; k < n; k++) {
+      let x = 0.5, y = 0.5, tries = 0;
+      do {
+        const a = this.rng() * TAU, r = 0.12 + Math.sqrt(this.rng()) * (this.pondR - 0.22);
+        x = 0.5 + Math.cos(a) * r; y = 0.5 + Math.sin(a) * r; tries++;
+      } while (Math.hypot(x - px, y - py) < 0.22 && tries < 24);
+      this.markers.push({ x, y, done: false, t: 0 });
+      px = x; py = y;
+    }
+  }
+
+  _updateMarkers(dt) {
+    const m = this.markers.find((k) => !k.done);
+    if (!m) return;
+    m.t += dt;
+    const s = this.strider;
+    if (Math.hypot(s.x - m.x, s.y - m.y) < 0.03) {
+      m.done = true; this.stats.markers++; this.score += 120;
+      this.audio.eat();
+      this.water.disc(m.x, m.y, 0.02, 0.03);
+      this.fx.push({ type: 'spark', x: m.x, y: m.y, t: 0, dur: 0.6, col: [0.6, 1, 0.9], size: 0.04 });
+      this.fx.push({ type: 'text', x: m.x, y: m.y, t: 0, dur: 1, pts: 120 });
+    }
+  }
+
+  _updateLevel(dt) {
+    const L = this.level;
+    L.remaining = Math.max(0, L.recipe.duration - this.time);
+    this._updateMarkers(dt);
+    const gp = goalProgress(L.recipe.goal, this);
+    this.hud.goal = gp.text;
+    this.hud.remaining = L.remaining;
+    const survive = L.recipe.goal.type === 'survive';
+    this.hud.stars = [gp.done || (survive && L.remaining <= 0), ...L.recipe.stars.map((st) => !!STARS[st.key].test(this, st.n))];
+    if (gp.done) this._levelCleared();
+    else if (L.remaining <= 0) { if (survive) this._levelCleared(); else this._finish('timeout'); }
+  }
+
+  _levelCleared() {
+    this.state = 'cleared';
+    this.clearT = 1.7;
+    this.envOverride = { rain: 0, aimed: 0, hail: 0, cars: 0 };
+    this.audio.chime();
+    this.hint(this.level.recipe.goal.type === 'survive' ? 'the storm passes' : 'done', 2);
+    this.zones.push({ x: this.strider.x, y: this.strider.y, r: 0.3, s: 0.6, t: 0, dur: 2 });
+  }
+
+  _finishLevel(reason) {
+    this.state = 'ended';
+    const L = this.level, r = L.recipe;
+    const cleared = reason === 'cleared';
+    const stars = cleared ? [true, ...r.stars.map((st) => !!STARS[st.key].test(this, st.n))] : [false, false, false];
+    const nStars = stars.filter(Boolean).length;
+    let score = Math.floor(this.score) + (cleared ? 500 : 0) + 250 * Math.max(0, nStars - 1);
+    score = Math.round(score * (this.skeletonMult || 1));
+    const c = this.save.campaign;
+    const prevStars = c.stars[r.id] || 0;
+    c.stars[r.id] = Math.max(prevStars, nStars);
+    c.best[r.id] = Math.max(c.best[r.id] || 0, score);
+    if (r.season && cleared) c.season = Math.max(c.season, r.i + 1);
+    const moltOffered = cleared && prevStars === 0 && ((r.i % 5 === 4) || !!r.boss);
+    this._store();
+    const res = { kind: 'level', reason, cause: this.cause, recipe: r, w: L.w, i: L.i, cleared, stars, nStars, prevStars, score, stats: this.stats, time: this.time, moltOffered, totalStars: this.totalStars() };
+    if (this.onEnd) this.onEnd(res);
+  }
 
   // ---- public control ----------------------------------------------------
   startRun(mode = 'daily') {
     this.mode = mode;
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
+    this.script = null;
+    this.applyWorld(CLASSIC_WORLD);
     this._resetWorld(seed);
     const lv = this.levels();
     this.senseR = 0.16 + 0.05 * lv.sense;
@@ -155,6 +274,9 @@ export class Game {
   toTitle() {
     this.attract = true;
     this.state = 'title';
+    this.script = null;
+    this.mode = 'daily';
+    if (this.world !== CLASSIC_WORLD) this.applyWorld(CLASSIC_WORLD);
     this._resetWorld((Math.random() * 1e9) | 0);
     this.strider.visible = true;
   }
@@ -179,37 +301,8 @@ export class Game {
 
   // ---- director ----------------------------------------------------------
   envAt(tRaw) {
-    let t = tRaw;
-    let loop = 0;
-    if (t > RUN_END && this.endless) {
-      const span = LOOP_END - LOOP_START;
-      const over = t - RUN_END;
-      loop = 1 + Math.floor(over / span);
-      t = LOOP_START + (over % span);
-    }
-    const k = 1 + 0.28 * loop;
-    const e = {
-      t, loop,
-      rain: k * kf(t, [[0, 0], [57, 0], [62, 0.2], [150, 0.35], [168, 1.5], [225, 2.2], [240, 1.2], [252, 0.5], [330, 0.6], [344, 3.0], [405, 3.8], [420, 2.2], [430, 0]]),
-      night: kf(t, [[236, 0], [250, 1], [330, 1], [344, 0.6], [418, 0.6], [426, 0.15], [432, 0]]),
-      storm: kf(t, [[0, 0], [140, 0.15], [170, 0.85], [238, 0.6], [330, 0.7], [344, 1], [418, 0.9], [428, 0.2], [432, 0]]),
-      dawn: kf(t, [[0, 1], [45, 1], [80, 0], [418, 0], [426, 1]]),
-      wind: kf(t, [[0, 0.05], [60, 0.25], [95, 0.9], [150, 0.9], [240, 0.45], [330, 0.6], [344, 1.3], [418, 0.6], [432, 0.1]]),
-      gnatRate: kf(t, [[0, 0.4], [60, 0.3], [150, 0.3], [240, 0.22], [330, 0.28], [420, 0.1], [432, 0]]),
-      slickRate: k * kf(t, [[0, 0], [60, 0.04], [150, 0.03], [240, 0.012], [330, 0.035], [420, 0]]),
-      fish: Math.min(1.4, k * kf(t, [[0, 0], [85, 0], [95, 0.6], [240, 0.5], [330, 1.0], [420, 0]])),
-      frog: t >= 236 && t < 420 ? 1 : 0,
-      bugs: t >= 244 && t < 420 ? Math.min(2, (t < 272 ? 1 : 2)) : 0,
-      dropSize: kf(t, [[0, 0.7], [150, 0.8], [240, 0.8], [330, 0.9], [420, 0.9]]) * (1 + 0.1 * loop),
-    };
-    let ph = 'dawn';
-    for (const [name, t0] of PHASES) if (t >= t0) ph = name;
-    if (tRaw > RUN_END && this.endless) ph = 'endless · ' + ph;
-    e.phase = ph;
+    const e = this.script ? this.script.envAt(tRaw) : classicEnv(tRaw, this.endless);
     if (this.envOverride) Object.assign(e, this.envOverride);
-    const windAng = 0.6 + 0.35 * Math.sin(t * 0.02) + 1.5 * loop;
-    e.windX = Math.cos(windAng) * e.wind;
-    e.windY = Math.sin(windAng) * e.wind;
     return e;
   }
 
@@ -220,7 +313,7 @@ export class Game {
     if (this.state === 'ended') { this._updateAmbient(dt, this.envAt(this.time), 0.2); return; }
     const env = this.envAt(this.time);
     this.env = env;
-    if (this.state === 'playing' || this.state === 'sinking' || this.state === 'sunrise') this.time += dt;
+    if (this.state === 'playing' || this.state === 'sinking' || this.state === 'sunrise' || this.state === 'cleared') this.time += dt;
 
     this.phaseT += dt;
     this.hud.phase = env.phase;
@@ -247,15 +340,21 @@ export class Game {
       this.score += dt * 10;
       this.traceT += dt;
       if (this.traceT >= 0.5) { this.traceT = 0; this.trace.push([Math.round(this.time * 10) / 10, +this.strider.x.toFixed(3), +this.strider.y.toFixed(3)]); }
-      if (!this.endless && this.time >= RUN_END - 10 && this.state === 'playing') {
+      if (this.level) this._updateLevel(dt);
+      if (!this.level && !this.endless && this.time >= RUN_END - 10 && this.state === 'playing') {
         // the storm fades; reveal begins at sunrise
         if (this.time >= RUN_END) this._sunrise();
       }
-      if (this.endless && env.loop > this.stats.loops) {
+      if (!this.level && this.endless && env.loop > this.stats.loops) {
         this.stats.loops = env.loop;
         this.score += 1000;
         this.hint('storm ' + (env.loop + 1), 2.5);
       }
+    } else if (this.state === 'cleared') {
+      this.clearT -= dt;
+      const s = this.strider; s.vx *= 0.96; s.vy *= 0.96; s.x += s.vx * dt; s.y += s.vy * dt; s.speed = Math.hypot(s.vx, s.vy);
+      this._updateLegs(dt, 0);
+      if (this.clearT <= 0) this._finish('cleared');
     } else if (this.state === 'sinking') {
       this._updateSinking(dt);
     } else if (this.state === 'sunrise') {
@@ -297,7 +396,7 @@ export class Game {
     this.spawnAcc.wind += dt * env.wind * 14 * k;
     while (this.spawnAcc.wind >= 1) {
       this.spawnAcc.wind -= 1;
-      const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * POND_R;
+      const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * this.pondR;
       this.water.disc(0.5 + Math.cos(a) * r, 0.5 + Math.sin(a) * r, 0.012 + Math.random() * 0.01, (Math.random() - 0.5) * 0.004 * (0.5 + env.wind));
     }
     this._updateSplashes(dt);
@@ -332,7 +431,7 @@ export class Game {
     s.x += s.vx * dt; s.y += s.vy * dt;
     // stay on the pond
     const dx = s.x - 0.5, dy = s.y - 0.5, d = Math.hypot(dx, dy);
-    const lim = POND_R - 0.02;
+    const lim = this.pondR - 0.02;
     if (d > lim) {
       s.x = 0.5 + dx / d * lim; s.y = 0.5 + dy / d * lim;
       const vn = (s.vx * dx + s.vy * dy) / d;
@@ -363,10 +462,12 @@ export class Game {
       const dmg = Math.min(0.7, (wave - tipThr) * 1.5) * dt * hairs;
       s.tension -= dmg;
       this.dmg.wave += dmg;
-      if (s.hurtT <= 0 && dmg > 0.004) { s.hurtT = 0.5; this.audio.hurt(); this.combo = 0; }
+      if (s.hurtT <= 0 && dmg > 0.004) { s.hurtT = 0.5; this.audio.hurt(); this.combo = 0; this.stats.hits++; }
     } else if (wave < tipThr * 0.6 && !inSlick && s.hunger > 0) {
       s.tension += dt * 0.035;
     }
+    if (inSlick && !s.wasInSlick) this.stats.slickTouches++;
+    s.wasInSlick = inSlick;
     if (inSlick) { s.tension -= dt * 0.11; this.dmg.slick += dt * 0.11; if (s.hurtT <= 0) { s.hurtT = 1.2; this.hint('slick · surface weakens', 2); } }
     s.hunger -= dt / 110;
     if (s.hunger <= 0) { s.hunger = 0; s.tension -= dt * 0.05; this.dmg.hunger += dt * 0.05; }
@@ -516,6 +617,7 @@ export class Game {
   }
 
   _finish(reason) {
+    if (this.level) { this._finishLevel(reason); return; }
     this.state = 'ended';
     const score = Math.floor(this.score);
     const res = { reason, cause: this.cause, score, stats: this.stats, time: this.time, mode: this.mode, newBest: false, newDaily: false, endlessOffered: reason === 'survived' && !this.endless };
@@ -540,7 +642,7 @@ export class Game {
     this.spawnAcc.gnat += dt * env.gnatRate * (live < 7 ? 1 : 0);
     while (this.spawnAcc.gnat >= 1) {
       this.spawnAcc.gnat -= 1;
-      const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (POND_R - 0.06);
+      const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (this.pondR - 0.06);
       const mosquito = this.rng() < 0.25;
       this.gnats.push({ x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r, kind: mosquito ? 1 : 0, state: 'fall', t: 0, life: mosquito ? 13 : 24, burst: this.rng() * 0.8, wing: this.rng() * TAU, stun: 0, heading: this.rng() * TAU, size: mosquito ? 0.012 : 0.0085 });
     }
@@ -577,7 +679,7 @@ export class Game {
           this.fx.push({ type: 'spark', x: g.x, y: g.y, t: 0, dur: 0.5, col: [1, 0.9, 0.6], size: 0.02 });
         }
         const dd = Math.hypot(g.x - 0.5, g.y - 0.5);
-        if (dd > POND_R - 0.01) { g.state = 'escape'; g.t = 0; }
+        if (dd > this.pondR - 0.01) { g.state = 'escape'; g.t = 0; }
       } else if (g.state === 'escape') {
         g.x += Math.cos(g.heading) * 0.12 * dt; g.y += Math.sin(g.heading) * 0.12 * dt;
         if (g.t > 0.8) g.state = 'gone';
@@ -599,6 +701,7 @@ export class Game {
         this.stats.gnats++;
         s.hunger = Math.min(1, s.hunger + (g.kind ? 0.45 : 0.32));
         s.weight += g.kind ? 0.42 : 0.28;
+        this.stats.maxWeight = Math.max(this.stats.maxWeight, s.weight);
         this.audio.eat();
         this.fx.push({ type: 'spark', x: g.x, y: g.y, t: 0, dur: 0.45, col: [1, 0.95, 0.7], size: 0.016 });
         this.fx.push({ type: 'text', x: g.x, y: g.y, t: 0, dur: 0.9, pts });
@@ -618,19 +721,19 @@ export class Game {
     // teaching drops: placed near the player so the first cancel comes early
     if (this.state === 'playing' && !this.endless && this.teach.i < this.teach.drops.length && this.time >= this.teach.drops[this.teach.i]) {
       this.teach.i++;
-      const s = this.strider;
-      const a = this.rng() * TAU, d = 0.13;
-      let x = s.x + Math.cos(a) * d, y = s.y + Math.sin(a) * d;
-      const dd = Math.hypot(x - 0.5, y - 0.5);
-      if (dd > POND_R - 0.05) { x = 0.5 + (x - 0.5) / dd * (POND_R - 0.08); y = 0.5 + (y - 0.5) / dd * (POND_R - 0.08); }
-      this._spawnDrop(x, y, 0.9);
+      this._spawnAimedDrop(0.9);
       if (this.teach.i === 1) this.hint('a drop · pulse when the ring is dark', 3.5);
+    }
+    // aimed drops (glass levels): land a set distance from the player
+    if (this.state === 'playing' && env.aimed > 0) {
+      this.spawnAcc.aimed += dt * env.aimed;
+      while (this.spawnAcc.aimed >= 1) { this.spawnAcc.aimed -= 1; this._spawnAimedDrop(0.85 + this.rng() * 0.2); }
     }
     for (const d of this.drops) {
       d.t += dt;
       if (d.t >= d.fall) {
         d.done = true;
-        const onPond = Math.hypot(d.x - 0.5, d.y - 0.5) < POND_R;
+        const onPond = Math.hypot(d.x - 0.5, d.y - 0.5) < this.pondR;
         if (onPond) {
           this.water.disc(d.x, d.y, 0.011 + 0.009 * d.size, 0.08 + 0.09 * d.size);
           this.splashes.push({ x: d.x, y: d.y, t: 0, dur: 0.38, size: 0.016 + 0.014 * d.size, seed: Math.random() * 10 });
@@ -642,6 +745,15 @@ export class Game {
   }
 
   _spawnDrop(x, y, size) { this.drops.push({ x, y, size, t: 0, fall: 1.15 }); }
+
+  _spawnAimedDrop(size) {
+    const s = this.strider;
+    const a = this.rng() * TAU, d = 0.12 + this.rng() * 0.03;
+    let x = s.x + Math.cos(a) * d, y = s.y + Math.sin(a) * d;
+    const dd = Math.hypot(x - 0.5, y - 0.5);
+    if (dd > this.pondR - 0.05) { x = 0.5 + (x - 0.5) / dd * (this.pondR - 0.08); y = 0.5 + (y - 0.5) / dd * (this.pondR - 0.08); }
+    this._spawnDrop(x, y, size);
+  }
 
   _updateSplashes(dt) {
     for (const s of this.splashes) s.t += dt;
@@ -656,7 +768,7 @@ export class Game {
       const wl = Math.hypot(env.windX, env.windY) || 0.2;
       const ux = -env.windX / wl, uy = -env.windY / wl;        // upwind
       const side = (this.rng() - 0.5) * 0.7;
-      const px = ux * (POND_R - 0.02) + -uy * side, py = uy * (POND_R - 0.02) + ux * side;
+      const px = ux * (this.pondR - 0.02) + -uy * side, py = uy * (this.pondR - 0.02) + ux * side;
       this.slicks.push({ x: 0.5 + px, y: 0.5 + py, r: 0.045 + this.rng() * 0.05, t: 0, kind: this.rng() < 0.5 ? 'oil' : 'soap' });
       if (!this.teach.slick && this.state === 'playing') { this.teach.slick = true; this.hint('a slick drifts in · keep off the rainbow', 3.5); }
     }
@@ -665,7 +777,7 @@ export class Game {
       s.x += (env.windX * 0.022 + Math.sin(s.t * 0.7) * 0.002) * dt;
       s.y += (env.windY * 0.022 + Math.cos(s.t * 0.9) * 0.002) * dt;
       const d = Math.hypot(s.x - 0.5, s.y - 0.5);
-      if (d > POND_R + s.r + 0.02 || s.t > 150) s.dead = true;
+      if (d > this.pondR + s.r + 0.02 || s.t > 150) s.dead = true;
     }
     this.slicks = this.slicks.filter((s) => !s.dead);
   }
@@ -755,7 +867,7 @@ export class Game {
           this.audio.splashBig();
           const d = Math.hypot(s.x - mx, s.y - my);
           if (d < 0.055 && this.state === 'playing') {
-            s.tension -= 0.45; this.dmg.fish += 0.45; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
+            s.tension -= 0.45; this.dmg.fish += 0.45; s.hurtT = 1; this.audio.hurt(); this.combo = 0; this.stats.hits++;
             const push = 0.5; s.vx += (s.x - mx) / (d + 1e-4) * push; s.vy += (s.y - my) / (d + 1e-4) * push;
             this.hint('the god below', 2.5);
           }
@@ -788,7 +900,7 @@ export class Game {
     }
     if (f.visible && f.state !== 'hidden') {
       const d = Math.hypot(f.x - 0.5, f.y - 0.5);
-      if (d > POND_R - 0.05) { f.x = 0.5 + (f.x - 0.5) / d * (POND_R - 0.05); f.y = 0.5 + (f.y - 0.5) / d * (POND_R - 0.05); }
+      if (d > this.pondR - 0.05) { f.x = 0.5 + (f.x - 0.5) / d * (this.pondR - 0.05); f.y = 0.5 + (f.y - 0.5) / d * (this.pondR - 0.05); }
     }
   }
 
@@ -800,11 +912,11 @@ export class Game {
       fr.visible = false;
       if (env.frog && fr.t <= 0) {
         fr.ang = this.rng() * TAU;
-        fr.x = 0.5 + Math.cos(fr.ang) * (POND_R + 0.045);
-        fr.y = 0.5 + Math.sin(fr.ang) * (POND_R + 0.045);
+        fr.x = 0.5 + Math.cos(fr.ang) * (this.pondR + 0.045);
+        fr.y = 0.5 + Math.sin(fr.ang) * (this.pondR + 0.045);
         fr.face = fr.ang + Math.PI;
         fr.state = 'sit'; fr.t = 40 + this.rng() * 20; fr.visible = true; fr.glint = 0;
-        this.water.disc(0.5 + Math.cos(fr.ang) * (POND_R - 0.01), 0.5 + Math.sin(fr.ang) * (POND_R - 0.01), 0.03, 0.09);
+        this.water.disc(0.5 + Math.cos(fr.ang) * (this.pondR - 0.01), 0.5 + Math.sin(fr.ang) * (this.pondR - 0.01), 0.03, 0.09);
         this.audio.blip(0.8, clamp((fr.x - this.cam.x) * 3, -1, 1));
       }
       return;
@@ -831,7 +943,7 @@ export class Game {
       tg.x = lerp(tg.x0, tg.tx, k); tg.y = lerp(tg.y0, tg.ty, k);
       if (!tg.hit && tg.t >= 0.1 && tg.t < 0.16 && this.state === 'playing') {
         if (Math.hypot(s.x - tg.tx, s.y - tg.ty) < 0.026) {
-          tg.hit = true; s.tension -= 0.4; this.dmg.frog += 0.4; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
+          tg.hit = true; s.tension -= 0.4; this.dmg.frog += 0.4; s.hurtT = 1; this.audio.hurt(); this.combo = 0; this.stats.hits++;
           s.vx += Math.cos(fr.face + Math.PI) * 0.25; s.vy += Math.sin(fr.face + Math.PI) * 0.25;
           this.hint('frog · keep to the open centre', 2.5);
         }
@@ -840,8 +952,8 @@ export class Game {
     } else if (fr.state === 'hop') {
       if (fr.t <= 0) {
         fr.state = 'away'; fr.t = 8 + this.rng() * 10; fr.visible = false;
-        this.water.disc(0.5 + Math.cos(fr.ang) * (POND_R - 0.02), 0.5 + Math.sin(fr.ang) * (POND_R - 0.02), 0.035, 0.16);
-        this.splashes.push({ x: 0.5 + Math.cos(fr.ang) * (POND_R - 0.02), y: 0.5 + Math.sin(fr.ang) * (POND_R - 0.02), t: 0, dur: 0.45, size: 0.035, seed: 5 });
+        this.water.disc(0.5 + Math.cos(fr.ang) * (this.pondR - 0.02), 0.5 + Math.sin(fr.ang) * (this.pondR - 0.02), 0.035, 0.16);
+        this.splashes.push({ x: 0.5 + Math.cos(fr.ang) * (this.pondR - 0.02), y: 0.5 + Math.sin(fr.ang) * (this.pondR - 0.02), t: 0, dur: 0.45, size: 0.035, seed: 5 });
         this.audio.splashBig();
       }
     }
@@ -852,7 +964,7 @@ export class Game {
     const s = this.strider;
     while (this.bugs.length < env.bugs) {
       const a = this.rng() * TAU;
-      this.bugs.push({ x: 0.5 + Math.cos(a) * (POND_R - 0.06), y: 0.5 + Math.sin(a) * (POND_R - 0.06), heading: a + Math.PI, size: 0.016, state: 'hunt', t: 0, wake: 0, stun: 0, flee: 0, turnT: 0 });
+      this.bugs.push({ x: 0.5 + Math.cos(a) * (this.pondR - 0.06), y: 0.5 + Math.sin(a) * (this.pondR - 0.06), heading: a + Math.PI, size: 0.016, state: 'hunt', t: 0, wake: 0, stun: 0, flee: 0, turnT: 0 });
       if (!this.teach.bug && this.state === 'playing') { this.teach.bug = true; this.hint('a hunter by vibration · hold still', 3.5); }
     }
     if (env.bugs === 0 && this.bugs.length) { for (const b of this.bugs) b.leaving = true; }
@@ -866,8 +978,8 @@ export class Game {
       let target = null;
       if (b.leaving) {
         const ang = Math.atan2(b.y - 0.5, b.x - 0.5);
-        target = { x: 0.5 + Math.cos(ang) * (POND_R + 0.1), y: 0.5 + Math.sin(ang) * (POND_R + 0.1) };
-        if (Math.hypot(b.x - 0.5, b.y - 0.5) > POND_R + 0.03) b.dead = true;
+        target = { x: 0.5 + Math.cos(ang) * (this.pondR + 0.1), y: 0.5 + Math.sin(ang) * (this.pondR + 0.1) };
+        if (Math.hypot(b.x - 0.5, b.y - 0.5) > this.pondR + 0.03) b.dead = true;
       } else if (b.flee > 0) {
         b.flee -= dt;
         target = { x: b.x + (b.x - s.x), y: b.y + (b.y - s.y) };
@@ -888,7 +1000,7 @@ export class Game {
         else {
           b.turnT -= dt;
           if (!b.wander || b.turnT <= 0) {
-            const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (POND_R - 0.08);
+            const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (this.pondR - 0.08);
             b.wander = { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r }; b.turnT = 4 + this.rng() * 4;
           }
           target = b.wander; speed = 0.06;
@@ -901,7 +1013,7 @@ export class Game {
       }
       b.x += Math.cos(b.heading) * speed * dt; b.y += Math.sin(b.heading) * speed * dt;
       const dd = Math.hypot(b.x - 0.5, b.y - 0.5);
-      if (!b.leaving && dd > POND_R - 0.03) { b.x = 0.5 + (b.x - 0.5) / dd * (POND_R - 0.03); b.y = 0.5 + (b.y - 0.5) / dd * (POND_R - 0.03); b.heading += Math.PI * 0.5; }
+      if (!b.leaving && dd > this.pondR - 0.03) { b.x = 0.5 + (b.x - 0.5) / dd * (this.pondR - 0.03); b.y = 0.5 + (b.y - 0.5) / dd * (this.pondR - 0.03); b.heading += Math.PI * 0.5; }
       // wake: a stream of small impulses → V-shaped pattern emerges from the sim
       b.wake -= dt;
       if (b.wake <= 0 && speed > 0.07) { b.wake = 0.055; this.water.disc(b.x, b.y, 0.008, 0.0045); }
@@ -912,7 +1024,7 @@ export class Game {
         }
         const ds = Math.hypot(s.x - b.x, s.y - b.y);
         if (ds < 0.022 && this.loudness() > 0.15 && this.state === 'playing') {
-          s.tension -= 0.3; this.dmg.bug += 0.3; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 4;
+          s.tension -= 0.3; this.dmg.bug += 0.3; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 4; this.stats.hits++;
           this.hint('backswimmer · stop moving to go silent', 3);
         }
       }
@@ -984,11 +1096,13 @@ export class Game {
     const e = this.env || this.envAt(0);
     v.cam.x = this.cam.x; v.cam.y = this.cam.y; v.cam.scale = this.cam.scale * renderScale;
     v.time = this.wall;
-    const az = -0.9 + 0.3 * Math.sin(this.time * 0.003);
-    const el = lerp(1.3, 1.15, e.dawn);
+    const L = this.world.light;
+    const az = L.az + 0.3 * Math.sin(this.time * 0.003);
+    const el = lerp(L.el, L.el - 0.15, e.dawn);
+    v.world = this.world;
     v.env.sun = [Math.cos(az) * Math.cos(el), Math.sin(az) * Math.cos(el), Math.sin(el)];
     v.env.night = e.night; v.env.storm = e.storm; v.env.dawn = e.dawn;
-    v.env.fog = e.night * 0.6 * (this.state === 'playing' ? 1 : 0.5);
+    v.env.fog = Math.min(0.8, e.night * 0.6 * (this.state === 'playing' ? 1 : 0.5) + (e.fog || 0));
     v.env.glow = 1.0;
     v.env.normalScale = 0.085;
     v.env.caustic = 110;
@@ -1128,6 +1242,19 @@ export class Game {
       }
       // ghost marker glow
       if (this.ghostPos) r.sprite(this.ghostPos.x, this.ghostPos.y, 0.012, 0, 0, 0.0, 0, 0, 0.4, 0.8, 1.0, 0.2);
+      // crossing lights: the next one glows, the rest wait faintly
+      let nextSeen = false;
+      for (const m of this.markers) {
+        if (m.done) continue;
+        if (!nextSeen) {
+          nextSeen = true;
+          const pulse = 0.5 + 0.5 * Math.sin(this.wall * 4 + m.t);
+          r.sprite(m.x, m.y, 0.045, 0, 1, 0.55 + 0.2 * pulse, 0.05, 0.14, 0.5, 1, 0.85, 0.45 + 0.35 * pulse);
+          r.sprite(m.x, m.y, 0.02, this.wall * 2, 8, 0, 0, 0, 0.6, 1, 0.9, 0.7);
+        } else {
+          r.sprite(m.x, m.y, 0.014, 0, 0, 0.0, 0, 0, 0.5, 1, 0.85, 0.12);
+        }
+      }
     }
   }
 
