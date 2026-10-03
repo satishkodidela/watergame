@@ -190,7 +190,7 @@ export class Game {
     const k = 1 + 0.28 * loop;
     const e = {
       t, loop,
-      rain: k * kf(t, [[0, 0], [57, 0], [62, 0.2], [150, 0.35], [168, 1.5], [225, 2.2], [240, 1.2], [252, 0.5], [330, 0.6], [344, 3.6], [405, 4.5], [420, 2.5], [430, 0]]),
+      rain: k * kf(t, [[0, 0], [57, 0], [62, 0.2], [150, 0.35], [168, 1.5], [225, 2.2], [240, 1.2], [252, 0.5], [330, 0.6], [344, 3.0], [405, 3.8], [420, 2.2], [430, 0]]),
       night: kf(t, [[236, 0], [250, 1], [330, 1], [344, 0.6], [418, 0.6], [426, 0.15], [432, 0]]),
       storm: kf(t, [[0, 0], [140, 0.15], [170, 0.85], [238, 0.6], [330, 0.7], [344, 1], [418, 0.9], [428, 0.2], [432, 0]]),
       dawn: kf(t, [[0, 1], [45, 1], [80, 0], [418, 0], [426, 1]]),
@@ -200,7 +200,7 @@ export class Game {
       fish: Math.min(1.4, k * kf(t, [[0, 0], [85, 0], [95, 0.6], [240, 0.5], [330, 1.0], [420, 0]])),
       frog: t >= 236 && t < 420 ? 1 : 0,
       bugs: t >= 244 && t < 420 ? Math.min(2, (t < 272 ? 1 : 2)) : 0,
-      dropSize: kf(t, [[0, 0.7], [150, 0.8], [240, 0.8], [330, 1.0], [420, 1.0]]) * (1 + 0.1 * loop),
+      dropSize: kf(t, [[0, 0.7], [150, 0.8], [240, 0.8], [330, 0.9], [420, 0.9]]) * (1 + 0.1 * loop),
     };
     let ph = 'dawn';
     for (const [name, t0] of PHASES) if (t >= t0) ph = name;
@@ -777,7 +777,7 @@ export class Game {
     if ((f.state === 'stalk' || f.state === 'rise') && f.cool <= 0) {
       const smp = this.water.sample(f.x, f.y);
       if (smp.h > 0.05) {
-        f.state = 'retreat'; f.t = 1.6; f.cool = 3;
+        f.state = 'retreat'; f.t = 1.6; f.cool = 8;
         this.score += 150; this.stats.fishScared++;
         this.water.disc(f.x, f.y, 0.04, -0.08);
         this.fx.push({ type: 'text', x: f.x, y: f.y, t: 0, dur: 1.2, pts: 150 });
@@ -916,9 +916,10 @@ export class Game {
           this.hint('backswimmer · stop moving to go silent', 3);
         }
       }
+      b.stunCool = Math.max(0, (b.stunCool || 0) - dt);
       const smp = this.water.sample(b.x, b.y);
-      if (smp.h > 0.06 && b.t > 1) {
-        b.stun = 3.5; this.score += 80; this.stats.bugsStunned++;
+      if (smp.h > 0.09 && b.t > 1 && b.stunCool <= 0) {
+        b.stun = 3.5; b.stunCool = 10; this.score += 80; this.stats.bugsStunned++;
         this.fx.push({ type: 'text', x: b.x, y: b.y, t: 0, dur: 1, pts: 80 });
         this.fx.push({ type: 'spark', x: b.x, y: b.y, t: 0, dur: 0.5, col: [1, 1, 0.8], size: 0.03 });
       }
