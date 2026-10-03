@@ -1,0 +1,14 @@
+{
+  "name": "glasswater",
+  "version": "0.1.0",
+  "description": "You are a water strider. Read the ripples, cancel the waves, survive one storm, one night.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node tools/serve.mjs 8080",
+    "shots": "node tools/shot.mjs shots"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

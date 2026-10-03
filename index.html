@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b1a22">
+<title>Glasswater</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230b1a22'/%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%237fb4ff' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='11' fill='none' stroke='%23ffd27a' stroke-width='3'/%3E%3C/svg%3E">
+<meta name="description" content="You are a water strider. Read the ripples, cancel the waves, survive one storm, one night.">
+<style>
+  :root { --ink: #eaf4f7; --dim: rgba(234,244,247,.62); --panel: rgba(6,16,22,.72); --accent: #ffd27a; --blue: #7fb4ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0b1a22; overflow: hidden; font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { position: fixed; inset: 0; display: block; }
+  #hud { position: fixed; top: max(10px, env(safe-area-inset-top)); left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: baseline; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.6), 0 0 12px rgba(0,0,0,.4); transition: opacity .6s; font-variant-numeric: tabular-nums; }
+  #hud.dim { opacity: 0; }
+  #hud .l { display: flex; gap: 10px; align-items: baseline; }
+  #phase { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  #time { font-size: 15px; }
+  #score { font-size: 22px; font-weight: 600; }
+  #hint { position: fixed; left: 0; right: 0; bottom: max(26px, env(safe-area-inset-bottom)); text-align: center; font-size: 15px; letter-spacing: .06em; color: var(--dim); pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,.7); transition: opacity .4s; }
+  #popups { position: fixed; inset: 0; pointer-events: none; }
+  .pop { position: absolute; left: 0; top: 0; font-size: 15px; font-weight: 600; color: #fff; text-shadow: 0 0 10px rgba(120,200,255,.9), 0 1px 2px rgba(0,0,0,.6); white-space: nowrap; }
+  .pop.perfect { color: var(--accent); font-size: 17px; }
+  .screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; padding: 20px; }
+  .screen[hidden] { display: none; }
+  .panel { pointer-events: auto; background: var(--panel); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); border: 1px solid rgba(255,255,255,.08); border-radius: 22px; padding: 26px 28px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+  h1 { margin: 0; font-size: 44px; letter-spacing: .18em; font-weight: 300; }
+  h1 small { display: block; font-size: 12px; letter-spacing: .3em; color: var(--dim); margin-top: 6px; font-weight: 400; }
+  h2 { margin: 0 0 4px; font-size: 30px; font-weight: 400; }
+  p { margin: 8px 0; color: var(--dim); font-size: 14px; line-height: 1.5; }
+  .btn { display: block; width: 100%; margin: 10px 0 0; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: var(--ink); font: inherit; font-size: 17px; cursor: pointer; transition: background .15s, transform .05s; }
+  .btn[hidden] { display: none; }
+  .btn:hover { background: rgba(255,255,255,.16); }
+  .btn:active { transform: scale(.985); }
+  .btn.primary { background: linear-gradient(135deg, rgba(255,210,122,.95), rgba(255,170,90,.95)); color: #22150a; border-color: transparent; font-weight: 600; }
+  .btn small { display: block; font-size: 12px; opacity: .75; margin-top: 2px; font-weight: 400; }
+  .row { display: flex; gap: 10px; }
+  .row .btn { flex: 1; }
+  .tiny { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 12px; color: var(--dim); }
+  .tiny button { background: none; border: none; color: var(--dim); font: inherit; cursor: pointer; padding: 4px 0; text-decoration: underline dotted; }
+  .how { font-size: 13px; color: var(--dim); margin-top: 14px; line-height: 1.7; }
+  .how b { color: var(--ink); font-weight: 500; }
+  .how .d { color: var(--blue); } .how .w { color: var(--accent); }
+  #end-score { font-size: 54px; font-weight: 200; letter-spacing: .04em; margin: 4px 0 0; }
+  #end-best { color: var(--accent); font-size: 13px; letter-spacing: .2em; text-transform: uppercase; min-height: 16px; }
+  #end-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin: 10px 0 4px; font-size: 12px; color: var(--dim); }
+  #end-stats b { display: block; font-size: 16px; color: var(--ink); font-weight: 500; }
+  #molt-title { margin: 14px 0 8px; font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+  #molt { display: flex; gap: 8px; }
+  .card { flex: 1; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 12px 8px; color: var(--ink); font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 4px; align-items: center; transition: background .15s, border-color .15s; }
+  .card:hover { background: rgba(255,255,255,.12); }
+  .card b { font-size: 13px; font-weight: 600; }
+  .card span { font-size: 11px; color: var(--dim); line-height: 1.35; }
+  .card i { font-style: normal; font-size: 10px; letter-spacing: .15em; color: var(--accent); }
+  .card.picked { border-color: var(--accent); background: rgba(255,210,122,.15); }
+  .card:disabled:not(.picked) { opacity: .4; }
+  #err { color: #fff; }
+  @media (max-height: 640px) { .panel { padding: 16px 18px; } h1 { font-size: 34px; } .how { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="dim">
+  <div class="l"><span id="phase">dawn</span><span id="time">0:00</span></div>
+  <span id="score">0</span>
+</div>
+<div id="hint"></div>
+<div id="popups"></div>
+
+<div id="title" class="screen">
+  <div class="panel">
+    <h1>GLASSWATER<small>one storm · one night</small></h1>
+    <p>You are a water strider. The skin of the pond holds you up. Every raindrop is a meteor, every ripple a wave, and the waves add up or cancel out.</p>
+    <button class="btn primary" id="btn-daily">Daily Storm<small id="daily-info"></small></button>
+    <button class="btn" id="btn-free">Free Storm<small>a new sky every time</small></button>
+    <div class="how">
+      <b>drag</b> to skate &nbsp;·&nbsp; <b>tap</b> to pulse<br>
+      pulse on <span class="d">dark</span> against a <span class="w">bright</span> crest to cancel it
+    </div>
+    <div class="tiny"><span id="best"></span><span id="endless-best"></span><span id="molts"></span></div>
+    <div class="tiny"><button id="q-btn">quality: <span id="q-label">auto</span></button><button id="snd">sound on</button></div>
+  </div>
+</div>
+
+<div id="end" class="screen" hidden>
+  <div class="panel">
+    <h2 id="end-title">Sunrise.</h2>
+    <p id="end-sub"></p>
+    <div id="end-score">0</div>
+    <div id="end-best"></div>
+    <div id="end-stats"></div>
+    <div id="molt-title">Molt</div>
+    <div id="molt"></div>
+    <div class="row">
+      <button class="btn primary" id="btn-again">Again</button>
+      <button class="btn" id="btn-endless" hidden>Endless</button>
+    </div>
+    <button class="btn" id="btn-title">Title</button>
+  </div>
+</div>
+
+<div id="pause" class="screen" hidden>
+  <div class="panel">
+    <h2>Paused</h2>
+    <button class="btn primary" id="btn-resume">Resume</button>
+    <button class="btn" id="btn-quit">Quit to title</button>
+  </div>
+</div>
+
+<div id="err" class="screen" hidden>
+  <div class="panel"><h2>No WebGL2</h2><p>Glasswater needs WebGL2. Try a current Chrome, Safari, Firefox or Edge.</p></div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
