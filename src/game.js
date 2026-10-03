@@ -1299,7 +1299,7 @@ export class Game {
     if (this.debugZoom) px *= this.debugZoom;
     this.cam.scale = lerp(this.cam.scale || px, px, Math.min(1, dt * 3));
     const hx = W / (2 * this.cam.scale), hy = H / (2 * this.cam.scale);
-    let tx = s.x + s.vx * 0.25, ty = s.y + s.vy * 0.25;
+    let tx = s.x + s.vx * 0.25 + (this.camOffset ? this.camOffset.x : 0), ty = s.y + s.vy * 0.25 + (this.camOffset ? this.camOffset.y : 0);
     if (this.state === 'title' || this.cam.reveal > 0.5) { tx = lerp(tx, 0.5, this.state === 'title' ? 1 : smooth((this.cam.reveal - 0.5) * 2)); ty = lerp(ty, 0.5, this.state === 'title' ? 1 : smooth((this.cam.reveal - 0.5) * 2)); }
     const m = 0.06;
     const minX = Math.min(0.5, -m + hx), maxX = Math.max(0.5, 1 + m - hx);
