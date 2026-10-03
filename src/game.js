@@ -105,7 +105,7 @@ export class Game {
     this.ghostI = 0;
     this.ghostPos = null;
     this.spawnAcc = { gnat: 0, rain: 0, slick: 0, wind: 0 };
-    this.teach = { drops: [18, 36, 50], i: 0 };
+    this.teach = { drops: [18, 36, 50], i: 0, fish: false, bug: false, slick: false };
     this.fish = { x: 0.5, y: 0.2, heading: 0, size: 0.09, depth: 0.1, mouth: 0, visible: false, state: 'hidden', t: 14, tx: 0.5, ty: 0.5, cool: 0 };
     this.frog = { x: 0, y: 0, ang: 0, face: 0, state: 'away', t: 20, glint: 0, visible: false, cool: 0 };
     this.strider = {
@@ -658,6 +658,7 @@ export class Game {
       const side = (this.rng() - 0.5) * 0.7;
       const px = ux * (POND_R - 0.02) + -uy * side, py = uy * (POND_R - 0.02) + ux * side;
       this.slicks.push({ x: 0.5 + px, y: 0.5 + py, r: 0.045 + this.rng() * 0.05, t: 0, kind: this.rng() < 0.5 ? 'oil' : 'soap' });
+      if (!this.teach.slick && this.state === 'playing') { this.teach.slick = true; this.hint('a slick drifts in · keep off the rainbow', 3.5); }
     }
     for (const s of this.slicks) {
       s.t += dt;
@@ -708,6 +709,7 @@ export class Game {
           f.state = 'prowl'; f.t = 12 + this.rng() * 8;
           const a = this.rng() * TAU; f.x = 0.5 + Math.cos(a) * 0.3; f.y = 0.5 + Math.sin(a) * 0.3; f.heading = a + Math.PI / 2;
           f.visible = true;
+          if (!this.teach.fish && this.state === 'playing') { this.teach.fish = true; this.hint('something below · a bright crest scares it', 3.5); }
         }
         break;
       case 'prowl': {
@@ -851,6 +853,7 @@ export class Game {
     while (this.bugs.length < env.bugs) {
       const a = this.rng() * TAU;
       this.bugs.push({ x: 0.5 + Math.cos(a) * (POND_R - 0.06), y: 0.5 + Math.sin(a) * (POND_R - 0.06), heading: a + Math.PI, size: 0.016, state: 'hunt', t: 0, wake: 0, stun: 0, flee: 0, turnT: 0 });
+      if (!this.teach.bug && this.state === 'playing') { this.teach.bug = true; this.hint('a hunter by vibration · hold still', 3.5); }
     }
     if (env.bugs === 0 && this.bugs.length) { for (const b of this.bugs) b.leaving = true; }
     for (const b of this.bugs) {
