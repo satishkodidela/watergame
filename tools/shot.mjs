@@ -20,7 +20,7 @@ const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`); });
 page.on('pageerror', (e) => errors.push('[pageerror] ' + e.message));
 
-await page.goto(`http://localhost:${port}/?quality=${process.env.Q || 'high'}`);
+await page.goto(`http://localhost:${port}${process.env.PAGE || '/'}?quality=${process.env.Q || 'high'}`);
 await page.waitForFunction(() => window.__gw && window.__gw.game);
 await page.waitForTimeout(800);
 const shot = (name) => page.screenshot({ path: path.join(out, name + '.png') });
