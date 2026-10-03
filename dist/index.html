@@ -56,6 +56,46 @@
   .card.picked { border-color: var(--accent); background: rgba(255,210,122,.15); }
   .card:disabled:not(.picked) { opacity: .4; }
   #err { color: #fff; }
+  .panel.wide { max-width: 560px; max-height: calc(100% - 24px); overflow-y: auto; text-align: left; }
+  .bar { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--dim); margin-bottom: 6px; }
+  .bar button, .link { background: none; border: none; color: var(--dim); font: inherit; cursor: pointer; padding: 4px 0; }
+  .bar button:hover, .link:hover { color: var(--ink); }
+  .eyebrow { font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--dim); }
+  #world-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .world { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; align-items: center; text-align: left; width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: var(--ink); font: inherit; cursor: pointer; }
+  .world:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+  .world b { font-size: 16px; font-weight: 600; }
+  .world span { grid-column: 1; font-size: 12px; color: var(--dim); }
+  .world i { grid-column: 2; grid-row: 1 / span 2; font-style: normal; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  .world.locked { opacity: .45; }
+  .world.locked i { color: var(--dim); }
+  #level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+  .tile { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: var(--ink); font: inherit; cursor: pointer; }
+  .tile:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+  .tile b { font-size: 17px; font-weight: 500; }
+  .tile i { font-style: normal; font-size: 10px; letter-spacing: .1em; color: var(--accent); }
+  .tile.locked { opacity: .35; }
+  .tile.boss { border-color: rgba(255,210,122,.5); }
+  .tile.boss b::after { content: ' ◆'; font-size: 10px; color: var(--accent); }
+  #intro-stars { list-style: none; padding: 0; margin: 10px 0; font-size: 14px; color: var(--ink); line-height: 1.8; }
+  #intro-stars li::before { content: '★ '; color: var(--accent); }
+  #intro-stars li.lit { color: var(--ink); }
+  #intro-mod { color: var(--accent); font-size: 13px; min-height: 0; }
+  .stars { font-size: 34px; letter-spacing: .15em; margin: 6px 0; color: rgba(255,255,255,.18); }
+  .stars span.on { color: var(--accent); text-shadow: 0 0 14px rgba(255,210,122,.6); }
+  #le-score { font-size: 40px; font-weight: 200; margin: 2px 0; }
+  #le-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin: 8px 0 4px; font-size: 12px; color: var(--dim); }
+  #le-stats b { display: block; font-size: 16px; color: var(--ink); font-weight: 500; }
+  #skel-row { display: flex; gap: 6px; overflow-x: auto; padding: 6px 0 2px; scrollbar-width: none; }
+  .skel { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: var(--ink); font: inherit; cursor: pointer; }
+  .skel b { font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .skel i { font-style: normal; font-size: 11px; color: var(--accent); }
+  .skel.picked { border-color: var(--accent); background: rgba(255,210,122,.14); }
+  .skel.locked { opacity: .4; }
+  #skel-info { font-size: 12px; min-height: 16px; }
+  #hud .c { position: absolute; left: 50%; transform: translateX(-50%); top: 0; text-align: center; font-size: 14px; letter-spacing: .06em; color: var(--ink); }
+  #hud .c #hstars { display: block; font-size: 12px; letter-spacing: .2em; color: rgba(255,255,255,.3); margin-top: 2px; }
+  #hud .c #hstars span.on { color: var(--accent); }
   @media (max-height: 640px) { .panel { padding: 16px 18px; } h1 { font-size: 34px; } .how { display: none; } }
 </style>
 </head>
@@ -64,6 +104,7 @@
 
 <div id="hud" class="dim">
   <div class="l"><span id="phase">dawn</span><span id="time">0:00</span></div>
+  <div class="c"><span id="goal"></span><span id="hstars"></span></div>
   <span id="score">0</span>
 </div>
 <div id="hint"></div>
@@ -73,8 +114,11 @@
   <div class="panel">
     <h1>GLASSWATER<small>one storm · one night</small></h1>
     <p>You are a water strider. The skin of the pond holds you up. Every raindrop is a meteor, every ripple a wave, and the waves add up or cancel out.</p>
-    <button class="btn primary" id="btn-daily">Daily Storm<small id="daily-info"></small></button>
-    <button class="btn" id="btn-free">Free Storm<small>a new sky every time</small></button>
+    <button class="btn primary" id="btn-ponds">Ponds<small id="ponds-info">six ponds · 150 levels · then the Storm Season</small></button>
+    <div class="row">
+      <button class="btn" id="btn-daily">Daily Storm<small id="daily-info"></small></button>
+      <button class="btn" id="btn-free">Free Storm<small>a new sky every time</small></button>
+    </div>
     <div class="how">
       <b>drag</b> to skate &nbsp;·&nbsp; <b>tap</b> to pulse<br>
       pulse on <span class="d">dark</span> against a <span class="w">bright</span> crest to cancel it
@@ -98,6 +142,57 @@
       <button class="btn" id="btn-endless" hidden>Endless</button>
     </div>
     <button class="btn" id="btn-title">Title</button>
+  </div>
+</div>
+
+<div id="ponds" class="screen" hidden>
+  <div class="panel wide">
+    <div class="bar"><button id="ponds-back">‹ title</button><span id="ponds-stars">★ 0</span></div>
+    <h2>Ponds</h2>
+    <p>Each pond is its own world. Stars open the next one.</p>
+    <div id="world-list"></div>
+  </div>
+</div>
+
+<div id="levels" class="screen" hidden>
+  <div class="panel wide">
+    <div class="bar"><button id="levels-back">‹ ponds</button><span id="levels-stars"></span></div>
+    <h2 id="levels-title">Puddle</h2>
+    <p id="levels-sub"></p>
+    <div id="level-grid"></div>
+  </div>
+</div>
+
+<div id="intro" class="screen" hidden>
+  <div class="panel">
+    <div class="eyebrow" id="intro-world">Puddle · 1</div>
+    <h2 id="intro-title">Survive</h2>
+    <p id="intro-goal"></p>
+    <ul id="intro-stars"></ul>
+    <p id="intro-mod"></p>
+    <div class="eyebrow" style="margin-top:10px">Skeleton</div>
+    <div id="skel-row"></div>
+    <p id="skel-info"></p>
+    <button class="btn primary" id="btn-skate">Skate</button>
+    <button class="btn" id="btn-intro-back">Back</button>
+  </div>
+</div>
+
+<div id="levelend" class="screen" hidden>
+  <div class="panel">
+    <div class="eyebrow" id="le-world"></div>
+    <h2 id="le-title">Cleared</h2>
+    <p id="le-sub"></p>
+    <div id="le-stars" class="stars"><span>★</span><span>★</span><span>★</span></div>
+    <div id="le-score">0</div>
+    <div id="le-stats"></div>
+    <div id="le-molt-title" class="eyebrow" hidden></div>
+    <div id="le-molt"></div>
+    <div class="row">
+      <button class="btn primary" id="btn-next">Next</button>
+      <button class="btn" id="btn-retry">Retry</button>
+    </div>
+    <button class="btn" id="btn-le-ponds">Ponds</button>
   </div>
 </div>
 
@@ -278,6 +373,442 @@ function dailyKey(date = new Date()) {
 }
 
 
+// ---- src/worlds.js ----
+// World presets: each pond has its own bed, water, light, edge behaviour,
+// glow colour and default threat roster. Everything here is data that feeds
+// the bed baker, the water shader and the level generator.
+
+const WORLDS = [
+  {
+    key: 'puddle', name: 'Puddle', tagline: 'a rain puddle on gravel', levels: 25, starsToUnlock: 0,
+    pondR: 0.46, edge: 'sponge', night: 0, dawn: 0.55, drift: [0, 0],
+    rainBase: 0.15, rainSlope: 1.5, windBase: 0.15, dropSize: 0.72, baseD: 0.25, slopeD: 1.5,
+    roster: { fish: 0, frog: 0, bugs: 0, slicks: 0, hail: 0, cars: 0, egret: 0 },
+    bed: { sandA: [0.40, 0.36, 0.29], sandB: [0.62, 0.56, 0.45], density: 1.0, tint: [1, 1, 1], moss: 0.5, mossColor: [0.20, 0.36, 0.16], scale: 1.0 },
+    water: { tint: [0.50, 0.78, 0.84], deep: [0.06, 0.20, 0.26], murk: 0.42, depth: 0.10 },
+    light: { az: -0.9, el: 1.25, sun: [1.0, 0.97, 0.90], zenith: [0.30, 0.52, 0.86], horizon: [0.86, 0.90, 0.95] },
+    glow: { a: [0.05, 0.50, 0.70], b: [0.40, 0.95, 1.00] },
+    bank: { tint: [0.70, 0.62, 0.48], moss: 0.55, mossColor: [0.22, 0.36, 0.15] },
+  },
+  {
+    key: 'garden', name: 'Garden Pond', tagline: 'lily pads, silt and a koi', levels: 25, starsToUnlock: 30,
+    pondR: 0.46, edge: 'sponge', night: 0, dawn: 0.2, drift: [0, 0],
+    rainBase: 0.2, rainSlope: 1.4, windBase: 0.2, dropSize: 0.8, baseD: 0.6, slopeD: 1.5,
+    roster: { fish: 1, frog: 1, bugs: 0, slicks: 0, hail: 0, cars: 0, egret: 0, pads: 7 },
+    bed: { sandA: [0.22, 0.24, 0.16], sandB: [0.40, 0.40, 0.26], density: 0.45, tint: [0.85, 0.95, 0.8], moss: 0.9, mossColor: [0.16, 0.34, 0.14], scale: 0.8 },
+    water: { tint: [0.45, 0.74, 0.60], deep: [0.03, 0.15, 0.11], murk: 0.6, depth: 0.14 },
+    light: { az: -0.6, el: 1.3, sun: [1.0, 0.98, 0.88], zenith: [0.36, 0.58, 0.82], horizon: [0.88, 0.92, 0.84] },
+    glow: { a: [0.05, 0.55, 0.45], b: [0.45, 1.00, 0.75] },
+    bank: { tint: [0.45, 0.55, 0.32], moss: 0.9, mossColor: [0.24, 0.42, 0.16] },
+  },
+  {
+    key: 'barrel', name: 'Rain Barrel', tagline: 'hard walls, every wave comes back', levels: 25, starsToUnlock: 70,
+    pondR: 0.40, edge: 'wall', night: 0, dawn: 0, drift: [0, 0],
+    rainBase: 0.15, rainSlope: 0.75, windBase: 0.05, dropSize: 0.85, baseD: 0.8, slopeD: 1.5,
+    roster: { fish: 0, frog: 0, bugs: 0, slicks: 0, hail: 0, cars: 0, egret: 0, overflow: 1 },
+    bed: { sandA: [0.10, 0.12, 0.15], sandB: [0.18, 0.20, 0.24], density: 0.0, tint: [1, 1, 1], moss: 0.25, mossColor: [0.18, 0.24, 0.16], scale: 1.0, rust: 1 },
+    water: { tint: [0.35, 0.50, 0.66], deep: [0.03, 0.06, 0.12], murk: 0.7, depth: 0.08 },
+    light: { az: -1.2, el: 1.35, sun: [1.0, 0.98, 0.95], zenith: [0.40, 0.46, 0.56], horizon: [0.70, 0.72, 0.76] },
+    glow: { a: [0.10, 0.35, 0.80], b: [0.50, 0.75, 1.00] },
+    bank: { tint: [0.16, 0.17, 0.19], moss: 0.0, mossColor: [0.1, 0.1, 0.1], rim: 1 },
+  },
+  {
+    key: 'ditch', name: 'Roadside Ditch', tagline: 'oil, grit and passing cars', levels: 25, starsToUnlock: 115,
+    pondR: 0.46, edge: 'sponge', night: 0, dawn: 0, drift: [0.012, 0.003],
+    rainBase: 0.3, rainSlope: 1.0, windBase: 0.4, dropSize: 0.85, baseD: 1.0, slopeD: 1.5,
+    roster: { fish: 0, frog: 0, bugs: 1, slicks: 0.06, hail: 0, cars: 1, egret: 0 },
+    bed: { sandA: [0.30, 0.26, 0.20], sandB: [0.46, 0.40, 0.30], density: 0.8, tint: [0.9, 0.85, 0.75], moss: 0.3, mossColor: [0.26, 0.30, 0.14], scale: 1.2 },
+    water: { tint: [0.52, 0.50, 0.38], deep: [0.12, 0.10, 0.05], murk: 0.75, depth: 0.09 },
+    light: { az: -0.8, el: 1.2, sun: [0.95, 0.95, 0.95], zenith: [0.46, 0.50, 0.56], horizon: [0.74, 0.74, 0.74] },
+    glow: { a: [0.60, 0.35, 0.05], b: [1.00, 0.75, 0.35] },
+    bank: { tint: [0.34, 0.34, 0.35], moss: 0.1, mossColor: [0.3, 0.3, 0.2], asphalt: 1 },
+  },
+  {
+    key: 'paddy', name: 'Rice Paddy', tagline: 'night water between the stalks', levels: 25, starsToUnlock: 165,
+    pondR: 0.46, edge: 'sponge', night: 1, dawn: 0, drift: [0, 0],
+    rainBase: 0.2, rainSlope: 1.2, windBase: 0.2, dropSize: 0.8, baseD: 1.2, slopeD: 1.5,
+    roster: { fish: 0.5, frog: 1, bugs: 2, slicks: 0, hail: 0, cars: 0, egret: 1, stalks: 22 },
+    bed: { sandA: [0.14, 0.14, 0.09], sandB: [0.26, 0.26, 0.16], density: 0.2, tint: [0.9, 1.0, 0.85], moss: 0.8, mossColor: [0.12, 0.26, 0.10], scale: 0.9 },
+    water: { tint: [0.30, 0.52, 0.42], deep: [0.02, 0.08, 0.06], murk: 0.7, depth: 0.12 },
+    light: { az: -0.5, el: 1.1, sun: [0.75, 0.82, 1.0], zenith: [0.02, 0.03, 0.08], horizon: [0.05, 0.07, 0.12] },
+    glow: { a: [0.05, 0.60, 0.50], b: [0.50, 1.00, 0.80] },
+    bank: { tint: [0.30, 0.28, 0.18], moss: 0.7, mossColor: [0.18, 0.32, 0.12] },
+  },
+  {
+    key: 'tarn', name: 'Mountain Tarn', tagline: 'cold, clear and hailing', levels: 25, starsToUnlock: 220,
+    pondR: 0.46, edge: 'sponge', night: 0, dawn: 0.15, drift: [0, 0],
+    rainBase: 0.1, rainSlope: 1.1, windBase: 0.6, dropSize: 0.7, baseD: 1.4, slopeD: 1.6,
+    roster: { fish: 0.6, frog: 0, bugs: 0, slicks: 0, hail: 1, cars: 0, egret: 0 },
+    bed: { sandA: [0.46, 0.47, 0.48], sandB: [0.70, 0.71, 0.72], density: 1.0, tint: [0.95, 0.97, 1.0], moss: 0.15, mossColor: [0.30, 0.42, 0.30], scale: 0.9, granite: 1 },
+    water: { tint: [0.62, 0.86, 0.96], deep: [0.04, 0.18, 0.32], murk: 0.3, depth: 0.16 },
+    light: { az: -1.0, el: 1.15, sun: [1.0, 1.0, 1.0], zenith: [0.22, 0.42, 0.80], horizon: [0.80, 0.88, 0.98] },
+    glow: { a: [0.20, 0.50, 0.90], b: [0.70, 0.90, 1.00] },
+    bank: { tint: [0.66, 0.67, 0.70], moss: 0.2, mossColor: [0.34, 0.44, 0.32], snow: 1 },
+  },
+];
+
+const WORLD_BY_KEY = Object.fromEntries(WORLDS.map((w) => [w.key, w]));
+
+// The classic 7-minute storm uses the puddle look.
+const CLASSIC_WORLD = WORLDS[0];
+
+
+// ---- src/levels.js ----
+// Level recipes: authored openers + a seeded generator with a difficulty
+// budget. A recipe is small data; the game turns it into weather, threats,
+// a goal and star conditions.
+
+
+
+const clampL = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerpL = (a, b, t) => a + (b - a) * t;
+function kf(t, pts) {
+  if (t <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    if (t <= pts[i][0]) {
+      const [t0, v0] = pts[i - 1], [t1, v1] = pts[i];
+      return lerpL(v0, v1, (t - t0) / (t1 - t0));
+    }
+  }
+  return pts[pts.length - 1][1];
+}
+
+// ---- the classic storm (Daily / Free / Endless) ----------------------------
+const PHASES = [['dawn', 0], ['wind', 60], ['rain', 150], ['night', 240], ['downpour', 330], ['sunrise', 420]];
+const LOOP_START = 60, LOOP_END = 420, RUN_END = 432;
+
+function classicEnv(tRaw, endless) {
+  let t = tRaw;
+  let loop = 0;
+  if (t > RUN_END && endless) {
+    const span = LOOP_END - LOOP_START;
+    const over = t - RUN_END;
+    loop = 1 + Math.floor(over / span);
+    t = LOOP_START + (over % span);
+  }
+  const k = 1 + 0.28 * loop;
+  const e = {
+    t, loop,
+    rain: k * kf(t, [[0, 0], [57, 0], [62, 0.2], [150, 0.35], [168, 1.5], [225, 2.2], [240, 1.2], [252, 0.5], [330, 0.6], [344, 3.0], [405, 3.8], [420, 2.2], [430, 0]]),
+    night: kf(t, [[236, 0], [250, 1], [330, 1], [344, 0.6], [418, 0.6], [426, 0.15], [432, 0]]),
+    storm: kf(t, [[0, 0], [140, 0.15], [170, 0.85], [238, 0.6], [330, 0.7], [344, 1], [418, 0.9], [428, 0.2], [432, 0]]),
+    dawn: kf(t, [[0, 1], [45, 1], [80, 0], [418, 0], [426, 1]]),
+    wind: kf(t, [[0, 0.05], [60, 0.25], [95, 0.9], [150, 0.9], [240, 0.45], [330, 0.6], [344, 1.3], [418, 0.6], [432, 0.1]]),
+    gnatRate: kf(t, [[0, 0.4], [60, 0.3], [150, 0.3], [240, 0.22], [330, 0.28], [420, 0.1], [432, 0]]),
+    slickRate: k * kf(t, [[0, 0], [60, 0.04], [150, 0.03], [240, 0.012], [330, 0.035], [420, 0]]),
+    fish: Math.min(1.4, k * kf(t, [[0, 0], [85, 0], [95, 0.6], [240, 0.5], [330, 1.0], [420, 0]])),
+    frog: t >= 236 && t < 420 ? 1 : 0,
+    bugs: t >= 244 && t < 420 ? Math.min(2, (t < 272 ? 1 : 2)) : 0,
+    dropSize: kf(t, [[0, 0.7], [150, 0.8], [240, 0.8], [330, 0.9], [420, 0.9]]) * (1 + 0.1 * loop),
+    aimed: 0, hail: 0, cars: 0, egret: 0, fog: 0,
+  };
+  let ph = 'dawn';
+  for (const [name, t0] of PHASES) if (t >= t0) ph = name;
+  if (tRaw > RUN_END && endless) ph = 'endless · ' + ph;
+  e.phase = ph;
+  const windAng = 0.6 + 0.35 * Math.sin(t * 0.02) + 1.5 * loop;
+  e.windX = Math.cos(windAng) * e.wind;
+  e.windY = Math.sin(windAng) * e.wind;
+  return e;
+}
+
+// ---- templates, goals, stars -------------------------------------------------
+const TEMPLATES = {
+  survive: { name: 'Survive',      rainK: 1.0, verb: 'survive the storm' },
+  feast:   { name: 'Feast',        rainK: 0.6, verb: 'eat' },
+  glass:   { name: 'Glassmaker',   rainK: 0.9, verb: 'cancel' },
+  hunt:    { name: 'Hunt',         rainK: 0.5, verb: 'strike' },
+  cross:   { name: 'Dark Crossing', rainK: 0.7, verb: 'reach the lights' },
+};
+
+const MODIFIERS = {
+  fog:        { name: 'Fog',        desc: 'you only see what you can feel' },
+  heavy:      { name: 'Full belly', desc: 'you start heavy' },
+  lowTension: { name: 'Thin skin',  desc: 'you start at half tension' },
+  gusts:      { name: 'Gusts',      desc: 'the wind never settles' },
+  nightfall:  { name: 'Nightfall',  desc: 'the light goes halfway through' },
+};
+
+// Star conditions, evaluated live against the game.
+const STARS = {
+  untipped:  { text: () => 'never tipped',                 test: (g) => g.stats.hits === 0 },
+  tension70: { text: () => 'finish with the skin strong',  test: (g) => g.strider.tension >= 0.7, atEnd: true },
+  eat:       { text: (n) => `eat ${n}`,                    test: (g, n) => g.stats.gnats >= n },
+  cancels:   { text: (n) => `cancel ${n} waves`,           test: (g, n) => g.stats.cancels >= n },
+  perfect:   { text: (n) => `${n} perfect cancels`,        test: (g, n) => g.stats.perfect >= n },
+  combo:     { text: (n) => `a ${n} cancel chain`,         test: (g, n) => g.stats.bestCombo >= n },
+  fast:      { text: () => 'finish with a third of the time left', test: (g) => g.level && g.level.remaining >= g.level.recipe.duration * 0.33, atEnd: true },
+  light:     { text: () => 'never get heavy',              test: (g) => g.stats.maxWeight < 1.0 },
+  noSlick:   { text: () => 'never touch a slick',          test: (g) => g.stats.slickTouches === 0 },
+  scare:     { text: (n) => `scare the fish ${n > 1 ? n + ' times' : 'once'}`, test: (g, n) => g.stats.fishScared >= n },
+  stun:      { text: (n) => `stun ${n} hunter${n > 1 ? 's' : ''}`, test: (g, n) => g.stats.bugsStunned >= n },
+};
+
+function goalText(goal) {
+  switch (goal.type) {
+    case 'survive': return 'survive until the storm passes';
+    case 'eat': return `eat ${goal.n} before the storm ends`;
+    case 'cancel': return `cancel ${goal.n} waves`;
+    case 'perfect': return `land ${goal.n} perfect cancels`;
+    case 'scare': return goal.n > 1 ? `scare the fish off ${goal.n} times` : 'scare the fish off with a crest';
+    case 'stun': return `stun ${goal.n} hunter${goal.n > 1 ? 's' : ''} with a crest`;
+    case 'cross': return `reach ${goal.n} lights in order`;
+    default: return '';
+  }
+}
+
+function goalProgress(goal, g) {
+  const s = g.stats;
+  switch (goal.type) {
+    case 'survive': return { done: false, text: 'survive' };
+    case 'eat': return { done: s.gnats >= goal.n, text: `eat ${Math.min(s.gnats, goal.n)}/${goal.n}` };
+    case 'cancel': return { done: s.cancels >= goal.n, text: `cancel ${Math.min(s.cancels, goal.n)}/${goal.n}` };
+    case 'perfect': return { done: s.perfect >= goal.n, text: `perfect ${Math.min(s.perfect, goal.n)}/${goal.n}` };
+    case 'scare': return { done: s.fishScared >= goal.n, text: `scare the fish ${Math.min(s.fishScared, goal.n)}/${goal.n}` };
+    case 'stun': return { done: s.bugsStunned >= goal.n, text: `stun ${Math.min(s.bugsStunned, goal.n)}/${goal.n}` };
+    case 'cross': return { done: s.markers >= goal.n, text: `lights ${Math.min(s.markers, goal.n)}/${goal.n}` };
+    default: return { done: false, text: '' };
+  }
+}
+
+// ---- authored openers --------------------------------------------------------
+// Partial recipes that override the generator for the first levels of a world.
+const OPENERS = {
+  puddle: [
+    { template: 'survive', duration: 55, rainPeak: 0.5, hint: 'drag to skate · tap to pulse' },
+    { template: 'feast', goal: { type: 'eat', n: 4 }, duration: 70, rainPeak: 0.2, gnatRate: 0.45 },
+    { template: 'glass', goal: { type: 'cancel', n: 4 }, duration: 75, rainPeak: 0.3, aimed: 0.22, hint: 'pulse on dark as the bright crest arrives' },
+    { template: 'survive', duration: 65, rainPeak: 1.0 },
+    { template: 'feast', goal: { type: 'eat', n: 5 }, duration: 80, rainPeak: 0.6, gnatRate: 0.55 },
+    { template: 'glass', goal: { type: 'perfect', n: 2 }, duration: 80, rainPeak: 0.5, aimed: 0.3, hint: 'closer crests make perfect cancels' },
+    { template: 'cross', goal: { type: 'cross', n: 4 }, duration: 75, rainPeak: 0.6 },
+    { template: 'survive', duration: 70, rainPeak: 1.4 },
+  ],
+  garden: [
+    { template: 'survive', duration: 60, rainPeak: 0.6, hint: 'lily pads break the waves · stand on one to rest' },
+    { template: 'hunt', goal: { type: 'scare', n: 1 }, duration: 90, rainPeak: 0.3, fish: 1.3, hint: 'the koi rises · meet it with a bright crest' },
+    { template: 'feast', goal: { type: 'eat', n: 5 }, duration: 80, rainPeak: 0.5 },
+  ],
+  barrel: [
+    { template: 'survive', duration: 60, rainPeak: 0.6, hint: 'hard walls · every wave comes back' },
+    { template: 'glass', goal: { type: 'cancel', n: 4 }, duration: 80, rainPeak: 0.5, aimed: 0.25 },
+  ],
+  ditch: [
+    { template: 'survive', duration: 60, rainPeak: 0.6, hint: 'the water drifts · the rainbow is poison' },
+    { template: 'feast', goal: { type: 'eat', n: 4 }, duration: 80, rainPeak: 0.5 },
+  ],
+  paddy: [
+    { template: 'survive', duration: 60, rainPeak: 0.5, hint: 'night · you see only the waves' },
+    { template: 'hunt', goal: { type: 'stun', n: 1 }, duration: 90, rainPeak: 0.3, bugs: 1, hint: 'a hunter by vibration · hold still, then strike' },
+    { template: 'cross', goal: { type: 'cross', n: 3 }, duration: 80, rainPeak: 0.4 },
+  ],
+  tarn: [
+    { template: 'survive', duration: 60, rainPeak: 0.4, hint: 'hail · short, sharp and many' },
+    { template: 'glass', goal: { type: 'perfect', n: 3 }, duration: 85, rainPeak: 0.5, aimed: 0.3 },
+  ],
+};
+
+const BOSSES = {
+  puddle: { name: 'The First Downpour', template: 'survive', duration: 90, rainPeak: 2.6, dropSize: 0.88, hint: 'chain cancels · carve a calm patch' },
+  garden: { name: 'The Koi', template: 'hunt', goal: { type: 'scare', n: 3 }, duration: 110, rainPeak: 1.2, fish: 1.6, boss: 'koi' },
+  barrel: { name: 'The Overflow', template: 'survive', duration: 95, rainPeak: 1.2, boss: 'overflow' },
+  ditch: { name: 'The Storm Drain', template: 'survive', duration: 95, rainPeak: 1.4, boss: 'drain' },
+  paddy: { name: 'The Egret', template: 'survive', duration: 100, rainPeak: 1.0, boss: 'egret', egret: 1.5 },
+  tarn: { name: 'The Hailstorm', template: 'survive', duration: 100, rainPeak: 1.0, boss: 'hail', hail: 2 },
+};
+
+// ---- generator --------------------------------------------------------------
+function hashSeed(w, i) { return ((w + 1) * 73856093 ^ (i + 1) * 19349663) >>> 0; }
+
+function levelId(w, i) { return `w${w}l${i}`; }
+
+function makeLevel(w, i) {
+  const season = w >= WORLDS.length;              // Storm Season: endless generated levels
+  const world = WORLDS[season ? (w % WORLDS.length) : w];
+  const n = world.levels;
+  const rng = mulberry32(hashSeed(w, i));
+  const isBoss = !season && i === n - 1;
+  const p = season ? 1 : i / (n - 1);
+  const D = season ? world.baseD + world.slopeD + 0.25 * (w - WORLDS.length + 1) + 0.05 * i : world.baseD + p * world.slopeD;
+  const opener = !season && OPENERS[world.key] && OPENERS[world.key][i];
+  const boss = isBoss ? BOSSES[world.key] : null;
+  const auth = opener || boss || {};
+
+  // template
+  const canHunt = world.roster.fish > 0 || world.roster.bugs > 0;
+  let template = auth.template;
+  if (!template) {
+    const r = rng();
+    template = r < 0.34 ? 'survive' : r < 0.56 ? 'feast' : r < 0.76 ? 'glass' : (r < 0.88 && canHunt) ? 'hunt' : 'cross';
+  }
+  const T = TEMPLATES[template];
+
+  // goal
+  let goal = auth.goal;
+  if (!goal) {
+    if (template === 'survive') goal = { type: 'survive' };
+    else if (template === 'feast') goal = { type: 'eat', n: 4 + Math.round(D * 2) };
+    else if (template === 'glass') goal = rng() < 0.5 || D < 0.8 ? { type: 'cancel', n: 4 + Math.round(D * 2.5) } : { type: 'perfect', n: 2 + Math.round(D * 1.2) };
+    else if (template === 'hunt') goal = world.roster.bugs > 0 && (world.roster.fish === 0 || rng() < 0.5) ? { type: 'stun', n: 1 + Math.round(D * 0.6) } : { type: 'scare', n: 1 + Math.round(D * 0.5) };
+    else goal = { type: 'cross', n: 4 + Math.round(D * 1.2) };
+  }
+
+  // duration & weather
+  const duration = auth.duration || clampL(Math.round(template === 'survive' ? 60 + 28 * p : 72 + 24 * p), 55, 110);
+  const rainPeak = auth.rainPeak ?? (world.rainBase + D * world.rainSlope * T.rainK);
+  const wind = world.windBase + D * 0.22;
+  const modifiers = [];
+  if (!opener && !boss && i >= 8 && rng() < 0.38) {
+    const pool = ['fog', 'heavy', 'lowTension', 'gusts'];
+    if (!world.night) pool.push('nightfall');
+    modifiers.push(pool[rng.int(pool.length)]);
+  }
+  const night = world.night;
+  const recipe = {
+    id: levelId(w, i), w, i, season, worldKey: world.key, boss: auth.boss || (isBoss ? 'downpour' : null),
+    name: boss ? boss.name : `${T.name}`,
+    template, goal, duration, D: +D.toFixed(2), modifiers, hint: auth.hint || '',
+    seed: hashSeed(w, i) ^ 0x5bd1e995,
+    weather: {
+      rainPeak, wind, night,
+      storm: night ? 0 : clampL(rainPeak / 3.2, 0, 1),
+      dawn: world.dawn * (1 - p * 0.6),
+    },
+    roster: {
+      gnatRate: auth.gnatRate ?? (template === 'feast' ? 0.42 : 0.3),
+      slickRate: world.roster.slicks * (0.6 + D * 0.4),
+      fish: auth.fish ?? (world.roster.fish ? Math.min(1.4, world.roster.fish * (0.4 + D * 0.4)) : (D > 1.4 && rng() < 0.3 ? 0.6 : 0)),
+      frog: world.roster.frog && D > 0.9 ? 1 : 0,
+      bugs: auth.bugs ?? (world.roster.bugs ? (D < 1.9 ? 1 : 2) : 0),
+      dropSize: auth.dropSize ?? (world.dropSize + D * 0.07),
+      aimed: auth.aimed ?? (template === 'glass' ? 0.22 : 0),
+      hail: auth.hail ?? world.roster.hail * (0.5 + D * 0.3),
+      cars: world.roster.cars ? 0.4 + D * 0.3 : 0,
+      egret: auth.egret ?? 0,
+      pads: world.roster.pads || 0,
+      stalks: world.roster.stalks || 0,
+      overflow: 0,
+    },
+  };
+  if (goal.type === 'scare') recipe.roster.fish = Math.max(recipe.roster.fish, 1.3);
+  if (goal.type === 'stun') recipe.roster.bugs = Math.max(recipe.roster.bugs, 1);
+
+  // stars: the goal is star 1; two more conditions by template
+  const pools = {
+    survive: [['untipped'], ['tension70'], ['eat', 2 + Math.round(D)]],
+    feast: [['untipped'], ['fast'], ['light']],
+    glass: [['combo', 3], ['untipped'], ['fast']],
+    hunt: [['untipped'], ['eat', 2], ['tension70']],
+    cross: [['untipped'], ['fast'], ['cancels', 2]],
+  };
+  const pool = pools[template].slice();
+  if (recipe.roster.slickRate > 0) pool.push(['noSlick']);
+  const stars = [];
+  while (stars.length < 2 && pool.length) stars.push(pool.splice(rng.int(pool.length), 1)[0]);
+  recipe.stars = stars.map(([key, n]) => ({ key, n: n || 0 }));
+  return recipe;
+}
+
+// Turn a recipe into the per-second environment the game consumes.
+class LevelScript {
+  constructor(recipe) {
+    this.recipe = recipe;
+    const r = recipe;
+    const d = r.duration;
+    const peak = r.weather.rainPeak;
+    const gust = r.modifiers.includes('gusts') ? 1.8 : 1;
+    this.rainKf = r.boss === 'downpour'
+      ? [[0, peak * 0.2], [d * 0.15, peak * 0.7], [d * 0.4, peak], [d * 0.75, peak * 1.1], [d, peak * 0.5]]
+      : [[0, 0], [d * 0.12, peak * 0.3], [d * 0.35, peak * 0.8], [d * 0.7, peak], [d * 0.92, peak * 0.6], [d, peak * 0.4]];
+    this.windBase = r.weather.wind * gust;
+    this.nightKf = r.modifiers.includes('nightfall') ? [[0, 0], [d * 0.45, 0], [d * 0.6, 1], [d, 1]] : [[0, r.weather.night]];
+    this.fog = r.modifiers.includes('fog') ? 0.55 : 0;
+  }
+  envAt(t) {
+    const r = this.recipe;
+    const rain = kf(t, this.rainKf);
+    const night = kf(t, this.nightKf);
+    const e = {
+      t, loop: 0, rain, night,
+      storm: r.weather.storm * (1 - night),
+      dawn: r.weather.dawn * (1 - night),
+      wind: this.windBase * (0.8 + 0.3 * Math.sin(t * 0.37) + 0.2 * Math.sin(t * 1.3)),
+      gnatRate: r.roster.gnatRate,
+      slickRate: r.roster.slickRate,
+      fish: r.roster.fish,
+      frog: r.roster.frog,
+      bugs: r.roster.bugs,
+      dropSize: r.roster.dropSize,
+      aimed: r.roster.aimed,
+      hail: r.roster.hail * (0.5 + 0.5 * rain / Math.max(0.2, r.weather.rainPeak)),
+      cars: r.roster.cars,
+      egret: r.roster.egret,
+      fog: this.fog,
+      phase: r.name.toLowerCase(),
+      remaining: Math.max(0, r.duration - t),
+    };
+    const windAng = 0.6 + 0.35 * Math.sin(t * 0.05);
+    e.windX = Math.cos(windAng) * e.wind;
+    e.windY = Math.sin(windAng) * e.wind;
+    return e;
+  }
+}
+
+function starText(star) { return STARS[star.key].text(star.n); }
+
+
+// ---- src/skeletons.js ----
+// Strider skeletons: selectable bodies with different stats and looks.
+// Harder bodies pay out a score multiplier. Unlocked by campaign stars.
+
+const SKELETONS = [
+  {
+    key: 'common', name: 'Common Strider', sci: 'Gerris lacustris', unlock: 0, mult: 1.0,
+    desc: 'the one on every pond',
+    stats: { speed: 1, tension: 1, pulse: 1, sense: 1, weight: 1, slickImmune: false, dimple: 1 },
+    look: { scale: 1, legLen: 1, legWidth: 1, body: [0.15, 0.11, 0.08], legs: [0.20, 0.15, 0.10], stripe: [0.80, 0.78, 0.70] },
+  },
+  {
+    key: 'skater', name: 'Pond Skater', sci: 'Aquarius paludum', unlock: 12, mult: 1.2,
+    desc: 'long legs, thin skin',
+    stats: { speed: 1.28, tension: 0.78, pulse: 1, sense: 1, weight: 0.9, slickImmune: false, dimple: 0.9 },
+    look: { scale: 0.95, legLen: 1.25, legWidth: 0.85, body: [0.24, 0.17, 0.10], legs: [0.30, 0.21, 0.12], stripe: [0.92, 0.86, 0.70] },
+  },
+  {
+    key: 'broadfoot', name: 'Broadfoot', sci: 'Limnoporus dissortis', unlock: 35, mult: 1.1,
+    desc: 'wide feet, slow and steady',
+    stats: { speed: 0.85, tension: 1.3, pulse: 1, sense: 1, weight: 1.2, slickImmune: false, dimple: 1.35 },
+    look: { scale: 1.05, legLen: 1.0, legWidth: 1.45, body: [0.10, 0.08, 0.06], legs: [0.14, 0.11, 0.08], stripe: [0.60, 0.60, 0.55] },
+  },
+  {
+    key: 'giant', name: 'Giant Strider', sci: 'Gigantometra gigas', unlock: 70, mult: 1.3,
+    desc: 'the largest of all, a pulse like thunder',
+    stats: { speed: 0.8, tension: 1.1, pulse: 1.5, sense: 1, weight: 1.5, slickImmune: false, dimple: 1.3 },
+    look: { scale: 1.35, legLen: 1.15, legWidth: 1.2, body: [0.12, 0.09, 0.07], legs: [0.18, 0.13, 0.09], stripe: [0.75, 0.70, 0.60] },
+  },
+  {
+    key: 'seaskater', name: 'Sea Skater', sci: 'Halobates', unlock: 120, mult: 1.4,
+    desc: 'born on the ocean, nothing sticks to it',
+    stats: { speed: 1.1, tension: 0.95, pulse: 0.7, sense: 1.1, weight: 1, slickImmune: true, dimple: 0.9 },
+    look: { scale: 0.85, legLen: 0.95, legWidth: 1.0, body: [0.08, 0.10, 0.14], legs: [0.12, 0.15, 0.20], stripe: [0.70, 0.80, 0.90] },
+  },
+  {
+    key: 'nymph', name: 'Nymph', sci: 'first instar', unlock: 180, mult: 2.0,
+    desc: 'tiny, fragile, and worth double',
+    stats: { speed: 1.1, tension: 0.6, pulse: 0.8, sense: 1.25, weight: 0.7, slickImmune: false, dimple: 0.7 },
+    look: { scale: 0.62, legLen: 0.9, legWidth: 0.85, body: [0.30, 0.25, 0.18], legs: [0.36, 0.29, 0.19], stripe: [0.92, 0.90, 0.80] },
+  },
+];
+
+const SKELETON_BY_KEY = Object.fromEntries(SKELETONS.map((s) => [s.key, s]));
+
+function statLine(sk) {
+  const s = sk.stats;
+  const arrow = (v) => (v > 1.05 ? '▲' : v < 0.95 ? '▼' : '–');
+  return `speed ${arrow(s.speed)} · skin ${arrow(s.tension)} · pulse ${arrow(s.pulse)} · sense ${arrow(s.sense)}${s.slickImmune ? ' · slick-proof' : ''}`;
+}
+
+
 // ---- src/shaders.js ----
 // All GLSL lives here as template strings. No external assets.
 
@@ -303,6 +834,8 @@ uniform float uC2;
 uniform float uDamp;
 uniform float uNu;
 uniform float uPondR;
+uniform float uEdgeWall;
+uniform sampler2D uMask;
 uniform int uNumImp;
 uniform vec4 uImp[16];   // x, y, radius, amp
 uniform vec4 uImpB[16];  // type(0 disc,1 ring), ringWidth, 0, 0
@@ -326,7 +859,7 @@ void main(){
   // Damping is applied to the whole new height (not only the velocity term):
   // scaling the velocity term alone destabilises the grid's Nyquist mode.
   float dist = length(vUv - 0.5);
-  float edge = smoothstep(uPondR - 0.05, uPondR + 0.01, dist);
+  float edge = smoothstep(uPondR - 0.05, uPondR + 0.01, dist) * (1.0 - uEdgeWall);
 
   float zoneK = 0.0;
   for (int i = 0; i < 12; i++) {
@@ -361,6 +894,9 @@ void main(){
       hprev += im.w * exp(-q2 * q2);
     }
   }
+  if (uEdgeWall > 0.5 && dist > uPondR) { hn = 0.0; hprev = 0.0; }   // hard wall: waves reflect
+  float solid = texture(uMask, vUv).r;
+  hn *= 1.0 - solid; hprev *= 1.0 - solid;                            // pads and stalks
   hn = clamp(hn, -1.0, 1.0);
   frag = vec4(hn, hprev, 0.0, 1.0);
 }`;
@@ -426,6 +962,8 @@ float fbm(vec2 p){
 
 const bedFS = `#version 300 es
 precision highp float;
+uniform vec3 uSandA, uSandB, uPebbleTint, uMossColor;
+uniform float uDensity, uMoss, uRust, uGranite;
 in vec2 vUv;
 out vec4 frag;
 ${noiseLib}
@@ -466,14 +1004,16 @@ vec4 pebbles(vec2 p, float scale, float density, float seed){
 void main(){
   vec2 p = vUv;
   float n = pfbm(p * 24.0, 24.0);
-  vec3 sand = mix(vec3(0.40, 0.36, 0.29), vec3(0.62, 0.56, 0.45), n);
+  vec3 sand = mix(uSandA, uSandB, n);
   sand *= 0.85 + 0.3 * pfbm(p * 96.0 + 3.0, 96.0);
   vec3 col = sand;
-  vec4 g2 = pebbles(p, 96.0, 0.65, 11.0); col = mix(col, g2.rgb, g2.a * 0.9);
-  vec4 g1 = pebbles(p, 40.0, 0.70, 3.0);  col = mix(col, g1.rgb, g1.a);
-  vec4 g0 = pebbles(p, 16.0, 0.45, 7.0);  col = mix(col, g0.rgb, g0.a);
+  vec4 g2 = pebbles(p, 96.0, 0.65 * uDensity, 11.0); g2.rgb *= uPebbleTint; col = mix(col, g2.rgb, g2.a * 0.9);
+  vec4 g1 = pebbles(p, 40.0, 0.70 * uDensity, 3.0);  g1.rgb *= uPebbleTint; col = mix(col, g1.rgb, g1.a);
+  vec4 g0 = pebbles(p, 16.0, 0.45 * uDensity, 7.0);  g0.rgb *= uPebbleTint; col = mix(col, g0.rgb, g0.a);
+  if (uGranite > 0.0) { float fl = step(0.82, pnoise(p * 512.0, 512.0)); col = mix(col, col * 0.35, fl * uGranite * (g0.a + g1.a) * 0.9); col += vec3(0.08) * uGranite * step(0.9, pnoise(p * 300.0 + 7.0, 300.0)); }
+  if (uRust > 0.0) { float ru = smoothstep(0.55, 0.8, pfbm(p * 14.0 + 5.0, 14.0)); col = mix(col, vec3(0.42, 0.22, 0.12) * (0.7 + 0.6 * pnoise(p * 200.0, 200.0)), ru * uRust * 0.7); col += vec3(0.05, 0.04, 0.03) * step(0.93, pnoise(p * 400.0 + 2.0, 400.0)) * uRust; }
   float m = smoothstep(0.52, 0.74, pfbm(p * 8.0 + 20.0, 8.0));
-  col = mix(col, vec3(0.20, 0.36, 0.16) * (0.8 + 0.4 * n), m * 0.55 * (1.0 - g0.a * 0.7));
+  col = mix(col, uMossColor * (0.8 + 0.4 * n), m * 0.55 * uMoss * (1.0 - g0.a * 0.7));
   float ao = 1.0 - 0.18 * smoothstep(0.0, 1.0, (1.0 - g0.a) * (1.0 - g1.a) * pfbm(p * 48.0 + 9.0, 48.0));
   col *= ao;
   frag = vec4(col, 1.0);
@@ -513,6 +1053,13 @@ uniform float uCaustic;
 uniform vec4 uGhost;        // x, y, radius, alpha (friend/ghost marker)
 uniform float uMicro;       // wind capillary texture strength (render only)
 uniform vec2 uWind;
+uniform vec3 uTintCol, uDeepCol, uGlowA, uGlowB, uBankTint, uBankMoss, uSunCol, uZenith, uHorizon;
+uniform float uMurk, uBankMossAmt, uEdgeWall, uDepthW;
+uniform vec4 uPad[8];
+uniform int uNumPad;
+uniform vec4 uStalk[12];
+uniform int uNumStalk;
+uniform float uFishKind;
 in vec2 vUv;
 out vec4 frag;
 ${noiseLib}
@@ -525,8 +1072,8 @@ float sdEll(vec2 p, vec2 r){ return (length(p / r) - 1.0) * min(r.x, r.y); }
 
 vec3 skyColor(vec3 d){
   float up = clamp(d.z, 0.0, 1.0);
-  vec3 zen = vec3(0.30, 0.52, 0.86);
-  vec3 hor = vec3(0.86, 0.90, 0.95);
+  vec3 zen = uZenith;
+  vec3 hor = uHorizon;
   vec3 day = mix(hor, zen, pow(up, 0.55));
   vec3 dawnSky = mix(vec3(1.0, 0.72, 0.42), vec3(0.58, 0.62, 0.82), pow(up, 0.5));
   day = mix(day, dawnSky, uDawn);
@@ -538,8 +1085,8 @@ vec3 skyColor(vec3 d){
   storm = mix(storm, vec3(0.62, 0.63, 0.66), cloud * 0.35);
   day = mix(day, storm, uStorm);
   float sd = max(dot(d, uSun), 0.0);
-  day += vec3(1.0, 0.95, 0.85) * pow(sd, 500.0) * 3.0 * (1.0 - uStorm * 0.92);
-  day += mix(vec3(1.0, 0.95, 0.9), vec3(1.0, 0.7, 0.45), uDawn) * pow(sd, 6.0) * 0.30 * (1.0 - uStorm * 0.85);
+  day += uSunCol * pow(sd, 500.0) * 3.0 * (1.0 - uStorm * 0.92);
+  day += mix(uSunCol, vec3(1.0, 0.7, 0.45), uDawn) * pow(sd, 6.0) * 0.30 * (1.0 - uStorm * 0.85);
   vec3 night = mix(vec3(0.025, 0.035, 0.08), vec3(0.01, 0.015, 0.045), up);
   night += vec3(0.8, 0.85, 1.0) * pow(sd, 700.0) * 1.6 + vec3(0.12, 0.14, 0.22) * pow(sd, 5.0) * 0.35;
   vec2 sp = d.xy / (d.z + 0.3) * 70.0;
@@ -561,9 +1108,10 @@ void main(){
   vec3 bank = vec3(0.0);
   if (waterMask < 1.0) {
     vec3 b = texture(uBed, world * 0.42).rgb;
-    b = mix(b, vec3(0.70, 0.62, 0.48), 0.30) * 1.08;
+    b = mix(b, uBankTint, 0.30) * 1.08;
     float moss = smoothstep(0.50, 0.80, fbm(world * 6.0 + 40.0));
-    b = mix(b, vec3(0.22, 0.36, 0.15), moss * 0.55);
+    b = mix(b, uBankMoss, moss * uBankMossAmt);
+    if (uEdgeWall > 0.5) { float ring = smoothstep(uPondR + 0.06, uPondR + 0.005, dPond); b = mix(b, vec3(0.10, 0.11, 0.13), ring * 0.8); b += vec3(0.35) * exp(-pow((dPond - uPondR - 0.012) / 0.006, 2.0)); }
     float wet = 1.0 - smoothstep(uPondR, uPondR + 0.035, dPond);
     b *= 1.0 - 0.45 * wet;
     bank = b;
@@ -606,7 +1154,7 @@ void main(){
     }
   }
 
-  float depthF = smoothstep(uPondR, uPondR - 0.10, dPond);
+  float depthF = smoothstep(uPondR, uPondR - uDepthW, dPond);
   vec2 gs2 = g * uNormalScale;
   gs2 /= 1.0 + length(gs2) * 0.6;
   if (uMicro > 0.0) {
@@ -651,12 +1199,25 @@ void main(){
     float db = sdEll(lp, uBodySize.xy);
     sh *= 1.0 - 0.55 * (1.0 - smoothstep(0.0, 0.006, db));
   }
+  for (int i = 0; i < 8; i++) {
+    if (i >= uNumPad) break;
+    vec4 P = uPad[i];
+    float d = length(fuv - (P.xy + shOff * 1.6)) - P.z;
+    sh *= 1.0 - 0.55 * (1.0 - smoothstep(-0.006, 0.006, d));
+  }
+  for (int i = 0; i < 12; i++) {
+    if (i * 2 >= uNumStalk) break;
+    vec4 S = uStalk[i];
+    float d1 = length(fuv - (S.xy + shOff * 1.2)) - 0.011;
+    sh *= 1.0 - 0.5 * (1.0 - smoothstep(-0.003, 0.004, d1));
+    if (i * 2 + 1 < uNumStalk) { float d2 = length(fuv - (S.zw + shOff * 1.2)) - 0.011; sh *= 1.0 - 0.5 * (1.0 - smoothstep(-0.003, 0.004, d2)); }
+  }
   light = light * sh + vec3(rim * (0.3 + 0.7 * sunUp) * 0.9);
 
   vec3 under = bed * light;
-  vec3 tint = mix(vec3(1.0), vec3(0.50, 0.78, 0.84), depthF * 0.7);
+  vec3 tint = mix(vec3(1.0), uTintCol, depthF * 0.7);
   under *= tint;
-  under = mix(under, vec3(0.06, 0.20, 0.26), depthF * 0.42);
+  under = mix(under, uDeepCol, depthF * uMurk);
   under = mix(under, under * vec3(0.9, 0.95, 1.0), uStorm * 0.3);
 
   // ---- fish (seen through the surface) ----
@@ -676,6 +1237,13 @@ void main(){
       float a = 1.0 - smoothstep(-soft * 0.4, soft, d);
       a *= mix(0.35, 0.97, depth);
       vec3 fc = mix(vec3(0.09, 0.12, 0.09), vec3(0.36, 0.38, 0.29), smoothstep(-L * 0.1, L * 0.14, lp.y));
+      if (uFishKind > 0.5) {
+        float koiA = smoothstep(0.42, 0.58, noise(lp * (5.0 / L) + 3.1));
+        float koiB = smoothstep(0.5, 0.62, noise(lp * (9.0 / L) + 11.0));
+        fc = mix(vec3(0.88, 0.84, 0.76), vec3(0.90, 0.45, 0.12), koiA * 0.85);
+        fc = mix(fc, vec3(0.16, 0.13, 0.12), koiB * 0.55);
+        fc *= mix(0.4, 1.0, smoothstep(-L * 0.02, -L * 0.2, d));
+      }
       fc += vec3(0.30, 0.26, 0.16) * smoothstep(0.6, 1.0, depth) * 0.6 * (1.0 - smoothstep(0.0, L * 0.2, abs(lp.y)));
       fc *= mix(0.5, 1.0, smoothstep(-L * 0.02, -L * 0.16, d));                 // darker rim
       fc *= 0.9 + 0.2 * noise(lp * (14.0 / L));                                 // scales
@@ -718,7 +1286,7 @@ void main(){
   float sp = pow(ndh, 1200.0);
   float sp2 = pow(ndh, 48.0);
   float sp3 = pow(ndh, 6.0);
-  vec3 sunCol = mix(vec3(1.0, 0.97, 0.90), vec3(1.0, 0.76, 0.50), uDawn);
+  vec3 sunCol = mix(uSunCol, vec3(1.0, 0.76, 0.50), uDawn);
   vec3 spec = sunCol * (sp * 2.2 + sp2 * 0.14 + sp3 * 0.05) * sunUp;
   spec += vec3(0.6, 0.7, 1.0) * (sp * 0.9 + sp2 * 0.08) * uNight;
 
@@ -755,7 +1323,7 @@ void main(){
     float lines = smoothstep(1.2, 5.0, slopeMag);
     float crests = smoothstep(0.03, 0.10, h);
     float glowA = lines * 0.22 + crests * 0.35;
-    vec3 bio = mix(vec3(0.05, 0.5, 0.7), vec3(0.4, 0.95, 1.0), crests);
+    vec3 bio = mix(uGlowA, uGlowB, crests);
     col += bio * glowA * uNight * uGlow;
     col *= 1.0 - 0.2 * uNight * smoothstep(0.0, -0.04, h);
   }
@@ -765,6 +1333,55 @@ void main(){
     float dg = length(world - uGhost.xy);
     float ring = exp(-pow((dg - uGhost.z) / (uGhost.z * 0.25), 2.0));
     col += vec3(0.4, 0.8, 1.0) * ring * uGhost.w * 0.35;
+  }
+
+  // ---- lily pads and stalks (above the water) ----
+  float pxw = 1.0 / uCam.z;
+  for (int i = 0; i < 8; i++) {
+    if (i >= uNumPad) break;
+    vec4 P = uPad[i];
+    vec2 dv = world - P.xy;
+    if (dot(dv, dv) > P.z * P.z * 1.7) continue;
+    float c = cos(P.w), s = sin(P.w);
+    vec2 lp = vec2(dv.x * c + dv.y * s, -dv.x * s + dv.y * c);
+    float ang = atan(lp.y, lp.x);
+    float rr = P.z * (1.0 + 0.035 * sin(ang * 7.0 + P.w * 3.0));
+    float d = length(lp) - rr;
+    float notch = max(lp.x - rr * 0.1, 0.0) * 0.36 - abs(lp.y);
+    if (notch > 0.0) d = max(d, min(notch, rr));
+    float meniscus = exp(-pow(max(d, 0.0) / 0.0045, 2.0));
+    col *= 1.0 - 0.3 * meniscus * step(0.0, d);
+    float a = 1.0 - smoothstep(-pxw, pxw, d);
+    if (a > 0.0) {
+      float rad = length(lp) / rr;
+      float veins = pow(abs(sin(ang * 9.0 + 0.3)), 28.0) * (1.0 - rad * 0.7);
+      vec3 base = mix(vec3(0.15, 0.40, 0.13), vec3(0.34, 0.60, 0.19), rad);
+      base += vec3(0.10, 0.14, 0.05) * veins;
+      base *= 0.86 + 0.16 * noise(lp * 160.0 + P.xy * 50.0);
+      base *= 1.0 - 0.4 * smoothstep(0.84, 1.0, rad);
+      base *= 0.88 + 0.22 * clamp(dot(normalize(lp + vec2(1e-4)), uSun.xy / max(length(uSun.xy), 1e-3)), -1.0, 1.0);
+      base += vec3(0.5, 0.55, 0.4) * pow(max(0.0, 1.0 - length(lp - vec2(-0.25, 0.2) * rr) / (rr * 0.6)), 3.0) * 0.25 * sunUp;
+      base *= mix(1.0, 0.18, uNight);
+      col = mix(col, base, a);
+    }
+  }
+  for (int i = 0; i < 12; i++) {
+    if (i * 2 >= uNumStalk) break;
+    vec4 S = uStalk[i];
+    for (int k = 0; k < 2; k++) {
+      if (i * 2 + k >= uNumStalk) break;
+      vec2 sp = k == 0 ? S.xy : S.zw;
+      vec2 dv = world - sp;
+      if (dot(dv, dv) > 0.0012) continue;
+      float d = length(dv) - 0.0105;
+      float a = 1.0 - smoothstep(-pxw, pxw, d);
+      col *= 1.0 - 0.3 * exp(-pow(max(d, 0.0) / 0.004, 2.0)) * step(0.0, d);
+      vec3 sc = mix(vec3(0.22, 0.30, 0.10), vec3(0.46, 0.54, 0.22), noise(dv * 400.0 + sp * 90.0));
+      sc *= 0.75 + 0.5 * clamp(dot(normalize(dv + vec2(1e-4)), uSun.xy / max(length(uSun.xy), 1e-3)), 0.0, 1.0);
+      sc *= mix(1.0, 0.55, uNight);
+      sc += uGlowB * 0.25 * uNight * (1.0 - smoothstep(-0.004, 0.0, d));
+      col = mix(col, sc, a);
+    }
   }
 
   // ---- sense fog ----
@@ -917,6 +1534,21 @@ void main(){
     a = min(a, 1.0);
   } else if (t == 9) {                // raindrop shadow: p0 softness, falling disc
     a = (1.0 - smoothstep(vP.y, 1.0, r)) * (0.75 + 0.25 * (1.0 - smoothstep(0.0, 0.5, r)));
+  } else if (t == 11) {               // egret shadow: p0 wing phase, p1 edge softness
+    vec2 p = vL;
+    float flap = vP.y;
+    float body = sdEll(p - vec2(-0.05, 0.0), vec2(0.40, 0.15));
+    float neck = sdCapsule(p, vec2(0.28, 0.0), vec2(0.60, 0.13), 0.045);
+    float head = sdEll(p - vec2(0.66, 0.15), vec2(0.10, 0.06));
+    float beak = sdCapsule(p, vec2(0.72, 0.15), vec2(0.98, 0.20), 0.02);
+    float w1 = sdEll(rot(p - vec2(-0.08, 0.14), 0.30 + 0.30 * flap), vec2(0.58, 0.15));
+    float w2 = sdEll(rot(p - vec2(-0.08, -0.14), -0.30 - 0.30 * flap), vec2(0.58, 0.15));
+    float legs = sdCapsule(p, vec2(-0.40, 0.0), vec2(-0.92, -0.05), 0.022);
+    float d = min(min(min(body, neck), min(head, beak)), min(min(w1, w2), legs));
+    a = 1.0 - smoothstep(-vP.z, vP.z, d);
+  } else if (t == 12) {               // hailstone: bright bead with a dark rim
+    a = 1.0 - smoothstep(0.7, 1.0, r);
+    col = mix(col, vec3(1.0), pow(max(0.0, 1.0 - length(vL - vec2(-0.3, 0.3)) * 1.4), 2.0) * 0.8);
   } else if (t == 10) {               // joystick base/knob ring
     float d = abs(r - 0.9) - 0.06;
     a = aa(d) * 0.6 + (1.0 - smoothstep(0.0, 0.9, r)) * 0.08;
@@ -1009,6 +1641,11 @@ class Water {
     this.c2 = 0.46;
     this.damp = 0.998;
     this.nu = 0.01;
+    this.pondR = POND_R;
+    this.edgeWall = 0;
+    this.obstacles = { pads: [], stalks: [] };
+    this.maskTex = null;
+    this.maskN = 0;
     this.progSim = new Program(gl, quadVS, simFS, 'sim');
     this.progCopy = new Program(gl, quadVS, copyFS, 'copy');
     this.progRead = new Program(gl, quadVS, readbackFS, 'readback');
@@ -1032,6 +1669,45 @@ class Water {
   }
 
   get tex() { return this.a.tex; }
+
+  // Solid obstacles (lily pads, stalks) rasterised into an R8 mask the sim
+  // forces to zero height: waves reflect and diffract around them.
+  setObstacles(pads, stalks) {
+    this.obstacles = { pads: pads || [], stalks: stalks || [] };
+    this._uploadMask();
+  }
+
+  _uploadMask() {
+    const gl = this.gl;
+    const n = this.n;
+    if (!this.maskTex || this.maskN !== n) {
+      if (this.maskTex) gl.deleteTexture(this.maskTex);
+      this.maskTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.maskTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R8, n, n);
+      this.maskN = n;
+    }
+    const data = new Uint8Array(n * n);
+    const { pads, stalks } = this.obstacles;
+    const mark = (cx, cy, r) => {
+      const x0 = Math.max(0, Math.floor((cx - r) * n)), x1 = Math.min(n - 1, Math.ceil((cx + r) * n));
+      const y0 = Math.max(0, Math.floor((cy - r) * n)), y1 = Math.min(n - 1, Math.ceil((cy + r) * n));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const dx = (x + 0.5) / n - cx, dy = (y + 0.5) / n - cy;
+        if (dx * dx + dy * dy <= r * r) data[y * n + x] = 255;
+      }
+    };
+    for (const p of pads) mark(p.x, p.y, p.r * 0.93);
+    for (const s of stalks) mark(s.x, s.y, s.r);
+    gl.bindTexture(gl.TEXTURE_2D, this.maskTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, n, n, gl.RED, gl.UNSIGNED_BYTE, data);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  }
   get texel() { return 1 / this.n; }
 
   resize(n) {
@@ -1052,6 +1728,7 @@ class Water {
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
     this.a = na; this.b = nb; this.n = n;
+    this._uploadMask();
   }
 
   clear() {
@@ -1074,7 +1751,8 @@ class Water {
   step(substeps = 1) {
     const gl = this.gl;
     const p = this.progSim.use();
-    p.f('uTexel', this.texel).f('uC2', this.c2).f('uDamp', this.damp).f('uNu', this.nu).f('uPondR', POND_R);
+    p.f('uTexel', this.texel).f('uC2', this.c2).f('uDamp', this.damp).f('uNu', this.nu).f('uPondR', this.pondR).f('uEdgeWall', this.edgeWall);
+    p.tex('uMask', 1, this.maskTex);
     const nz = Math.min(12, this.zones.length);
     for (let i = 0; i < nz; i++) {
       const z = this.zones[i];
@@ -1219,16 +1897,28 @@ class Renderer {
     this.scene = null; this.blurA = null; this.blurB = null;
     this.feet = new Float32Array(6 * 4);
     this.slicks = new Float32Array(8 * 4);
+    this.pads = new Float32Array(8 * 4);
+    this.stalks = new Float32Array(12 * 4);
     this._initSprites();
-    this._bakeBed();
+    this.world = CLASSIC_WORLD;
+    this.bedTex = null;
+    this.bakeBed(CLASSIC_WORLD.bed);
   }
 
-  _bakeBed() {
+  setWorld(world) {
+    if (this.world === world && this.bedTex) return;
+    this.world = world;
+    this.bakeBed(world.bed);
+  }
+
+  bakeBed(bed) {
     const gl = this.gl;
     const size = Math.min(1024, this.caps.maxTex);
     this.bed = createTarget(gl, size, size, { internalFormat: gl.RGBA8, filter: gl.LINEAR, wrap: gl.REPEAT });
     bindTarget(gl, this.bed);
-    this.progBed.use();
+    const b = this.progBed.use();
+    b.v3('uSandA', ...bed.sandA).v3('uSandB', ...bed.sandB).v3('uPebbleTint', ...bed.tint).v3('uMossColor', ...bed.mossColor);
+    b.f('uDensity', bed.density).f('uMoss', bed.moss).f('uRust', bed.rust || 0).f('uGranite', bed.granite || 0);
     drawFullscreen(gl);
     gl.bindTexture(gl.TEXTURE_2D, this.bed.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -1246,6 +1936,7 @@ class Renderer {
     gl.generateMipmap(gl.TEXTURE_2D);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     destroyTarget(gl, this.bed);
+    if (this.bedTex) gl.deleteTexture(this.bedTex);
     this.bedTex = mipTex;
   }
 
@@ -1334,7 +2025,20 @@ class Renderer {
     p.f('uTexel', water.texel).f('uTime', view.time);
     p.f('uNight', env.night).f('uStorm', env.storm).f('uDawn', env.dawn);
     p.v3('uSun', env.sun[0], env.sun[1], env.sun[2]);
-    p.f('uPondR', POND_R);
+    p.f('uPondR', water.pondR);
+    const W = view.world || this.world;
+    p.v3('uTintCol', ...W.water.tint).v3('uDeepCol', ...W.water.deep).f('uMurk', W.water.murk).f('uDepthW', W.water.depth);
+    p.v3('uGlowA', ...W.glow.a).v3('uGlowB', ...W.glow.b);
+    p.v3('uBankTint', ...W.bank.tint).v3('uBankMoss', ...W.bank.mossColor).f('uBankMossAmt', W.bank.moss);
+    p.v3('uSunCol', ...W.light.sun).v3('uZenith', ...W.light.zenith).v3('uHorizon', ...W.light.horizon);
+    p.f('uEdgeWall', water.edgeWall);
+    const ob = water.obstacles;
+    const np = Math.min(8, ob.pads.length);
+    for (let i = 0; i < np; i++) { const q = ob.pads[i]; this.pads[i * 4] = q.x; this.pads[i * 4 + 1] = q.y; this.pads[i * 4 + 2] = q.r; this.pads[i * 4 + 3] = q.rot || 0; }
+    p.i('uNumPad', np).v4a('uPad', this.pads);
+    const nst = Math.min(24, ob.stalks.length);
+    for (let i = 0; i < nst; i++) { const q = ob.stalks[i]; this.stalks[i * 2] = q.x; this.stalks[i * 2 + 1] = q.y; }
+    p.i('uNumStalk', nst).v4a('uStalk', this.stalks);
     const s = view.strider;
     for (let i = 0; i < 6; i++) {
       const f = s.feet[i];
@@ -1346,6 +2050,7 @@ class Renderer {
     const fish = view.fish;
     p.v4('uFish', fish.x, fish.y, fish.heading, fish.size);
     p.v3('uFishState', fish.depth, fish.mouth, fish.visible ? 1 : 0);
+    p.f('uFishKind', fish.kind || 0);
     const bug = view.bug;
     p.v4('uBug', bug.x, bug.y, bug.heading, bug.visible ? bug.size : 0);
     const ns = Math.min(8, view.slicks.length);
@@ -1769,6 +2474,9 @@ class AudioEngine {
 // ---- src/game.js ----
 
 
+
+
+
 const UPGRADES = {
   legs:      { name: 'Longer legs',      desc: 'Skate faster',                         max: 3 },
   hairs:     { name: 'Repellent hairs',  desc: 'Waves tip you less',                  max: 3 },
@@ -1781,19 +2489,7 @@ const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
-function kf(t, pts) {
-  if (t <= pts[0][0]) return pts[0][1];
-  for (let i = 1; i < pts.length; i++) {
-    if (t <= pts[i][0]) {
-      const [t0, v0] = pts[i - 1], [t1, v1] = pts[i];
-      return lerp(v0, v1, (t - t0) / (t1 - t0));
-    }
-  }
-  return pts[pts.length - 1][1];
-}
 
-const PHASES = [['dawn', 0], ['wind', 60], ['rain', 150], ['night', 240], ['downpour', 330], ['sunrise', 420]];
-const LOOP_START = 60, LOOP_END = 420, RUN_END = 432;
 const PHASE_PERIOD = 1.2;          // pulse metronome period (s)
 const STORE_KEY = 'glasswater.v1';
 
@@ -1817,7 +2513,14 @@ class Game {
     this.time = 0;
     this.wall = 0;
     this.events = [];       // UI messages {type, ...}
-    this.hud = { phase: 'dawn', time: 0, score: 0, hint: '', hintT: 0 };
+    this.hud = { phase: 'dawn', time: 0, score: 0, hint: '', hintT: 0, goal: '', remaining: -1, stars: null, levelLabel: '' };
+    this.world = CLASSIC_WORLD;
+    this.script = null;
+    this.onWorld = null;
+    this.level = null;
+    this.markers = [];
+    this.skeletonMult = 1;
+    this.skeleton = SKELETONS[0];
     this.onEnd = null;
     this.inputDir = { x: 0, y: 0 };
     this.cssW = 1; this.cssH = 1;
@@ -1840,9 +2543,10 @@ class Game {
         daily: s.daily || null,   // {key, best, trace}
         ghost: s.ghost || null,
         ghostScore: s.ghostScore || 0,
+        campaign: Object.assign({ stars: {}, best: {}, skeleton: 'common', season: 0 }, s.campaign || {}),
       };
     } catch (_) {
-      return { best: 0, bestEndless: 0, molts: { legs: 0, hairs: 0, pulse: 0, sense: 0, resonance: 0 }, runs: 0, clears: 0, daily: null, ghost: null, ghostScore: 0 };
+      return { best: 0, bestEndless: 0, molts: { legs: 0, hairs: 0, pulse: 0, sense: 0, resonance: 0 }, runs: 0, clears: 0, daily: null, ghost: null, ghostScore: 0, campaign: { stars: {}, best: {}, skeleton: 'common', season: 0 } };
     }
   }
   _store() { try { localStorage.setItem(STORE_KEY, JSON.stringify(this.save)); } catch (_) { /* private mode */ } }
@@ -1855,7 +2559,11 @@ class Game {
     this.loop = 0;
     this.endless = false;
     this.score = 0;
-    this.stats = { gnats: 0, cancels: 0, perfect: 0, fishScared: 0, bugsStunned: 0, bestCombo: 0, loops: 0, survived: 0 };
+    this.stats = { gnats: 0, cancels: 0, perfect: 0, fishScared: 0, bugsStunned: 0, bestCombo: 0, loops: 0, survived: 0, hits: 0, maxWeight: 0, slickTouches: 0, markers: 0 };
+    this.level = null;
+    this.markers = [];
+    this.envOverride = null;
+    this.hud.goal = ''; this.hud.remaining = -1; this.hud.stars = null; this.hud.levelLabel = '';
     this.combo = 0;
     this.comboT = 0;
     this.gnats = [];
@@ -1872,9 +2580,17 @@ class Game {
     this.ghostT = 0;
     this.ghostI = 0;
     this.ghostPos = null;
-    this.spawnAcc = { gnat: 0, rain: 0, slick: 0, wind: 0 };
+    this.spawnAcc = { gnat: 0, rain: 0, slick: 0, wind: 0, aimed: 0 };
     this.teach = { drops: [18, 36, 50], i: 0, fish: false, bug: false, slick: false };
-    this.fish = { x: 0.5, y: 0.2, heading: 0, size: 0.09, depth: 0.1, mouth: 0, visible: false, state: 'hidden', t: 14, tx: 0.5, ty: 0.5, cool: 0 };
+    this.fish = { x: 0.5, y: 0.2, heading: 0, size: 0.09, depth: 0.1, mouth: 0, visible: false, state: 'hidden', t: 14, tx: 0.5, ty: 0.5, cool: 0, kind: 0 };
+    this.egret = { state: 'away', t: 9, x: 0.5, y: 1.2, heading: 0, size: 0.1, tx: 0.5, ty: 0.5, flap: 0, alpha: 0 };
+    this.car = null; this.carT = 10;
+    this.hailT = 3;
+    this.spout = null;
+    this.drain = null;
+    this.obstacles = { pads: [], stalks: [] };
+    this.water.setObstacles([], []);
+    this.driftX = 0; this.driftY = 0;
     this.frog = { x: 0, y: 0, ang: 0, face: 0, state: 'away', t: 20, glint: 0, visible: false, cool: 0 };
     this.strider = {
       x: 0.5, y: 0.5, vx: 0, vy: 0, heading: Math.PI / 2, speed: 0,
@@ -1884,7 +2600,7 @@ class Game {
       feet: LEG_DEF.map(() => ({ x: 0.5, y: 0.5, r: 0.006, w: 1, kx: 0.5, ky: 0.5 })),
     };
     this.phaseT = 0;
-    this.dmg = { wave: 0, slick: 0, hunger: 0, weight: 0, fish: 0, frog: 0, bug: 0 };
+    this.dmg = { wave: 0, slick: 0, hunger: 0, weight: 0, fish: 0, frog: 0, bug: 0, egret: 0, drain: 0 };
     this.cause = '';
     this.ready = 0;        // "cancel window open" indicator strength
     this.flash = 0;
@@ -1893,14 +2609,191 @@ class Game {
   }
 
   levels() { return this.save.molts; }
+  get pondR() { return this.water.pondR; }
+
+  applyWorld(world) {
+    this.world = world;
+    this.water.pondR = world.pondR;
+    this.water.edgeWall = world.edge === 'wall' ? 1 : 0;
+    if (this.onWorld) this.onWorld(world);
+  }
+
+  // ---- skeletons -----------------------------------------------------------
+  selectedSkeleton() {
+    const sk = SKELETON_BY_KEY[this.save.campaign.skeleton] || SKELETONS[0];
+    return this.isSkeletonUnlocked(sk) ? sk : SKELETONS[0];
+  }
+  isSkeletonUnlocked(sk) { return this.totalStars() >= sk.unlock; }
+  selectSkeleton(key) {
+    const sk = SKELETON_BY_KEY[key];
+    if (!sk || !this.isSkeletonUnlocked(sk)) return false;
+    this.save.campaign.skeleton = key;
+    this._store();
+    return true;
+  }
+  _applySkeleton(sk) {
+    this.skeleton = sk;
+    this.skeletonMult = sk.mult;
+    const s = this.strider;
+    const sc = sk.look.scale;
+    s.halfLen = 0.02 * sc; s.halfWid = 0.0045 * sc;
+  }
+
+  // ---- campaign ----------------------------------------------------------
+  totalStars() { return Object.values(this.save.campaign.stars).reduce((a, b) => a + b, 0); }
+  levelStars(w, i) { return this.save.campaign.stars[levelId(w, i)] || 0; }
+  worldStars(w) { let s = 0; for (let i = 0; i < WORLDS[w].levels; i++) s += this.levelStars(w, i); return s; }
+  worldCleared(w) { return this.levelStars(w, WORLDS[w].levels - 1) > 0; }
+  isWorldUnlocked(w) {
+    if (w >= WORLDS.length) return this.worldCleared(WORLDS.length - 1);
+    return this.totalStars() >= WORLDS[w].starsToUnlock;
+  }
+  isLevelUnlocked(w, i) {
+    if (w >= WORLDS.length) return i <= this.save.campaign.season;
+    if (i === 0) return this.isWorldUnlocked(w);
+    return this.levelStars(w, i - 1) > 0;
+  }
+
+  startLevel(w, i) {
+    const recipe = makeLevel(w, i);
+    const world = WORLDS[recipe.season ? w % WORLDS.length : w];
+    this.mode = 'level';
+    this.applyWorld(world);
+    this._resetWorld(recipe.seed);
+    this.script = new LevelScript(recipe);
+    this.level = { recipe, w, i, remaining: recipe.duration };
+    this._applySkeleton(this.selectedSkeleton());
+    const lv = this.levels();
+    this.senseR = (0.16 + 0.05 * lv.sense) * this.skeleton.stats.sense;
+    const s = this.strider;
+    if (recipe.modifiers.includes('heavy')) s.weight = 1.05;
+    if (recipe.modifiers.includes('lowTension')) s.tension = 0.5;
+    this._makeObstacles(recipe);
+    if (recipe.goal.type === 'cross') this._makeMarkers(recipe.goal.n);
+    if (recipe.boss === 'koi') { this.fish.kind = 1; this.fish.size = 0.12; }
+    if (recipe.boss === 'overflow') this.spout = { x: 0.5, y: 0.5 + this.pondR - 0.03, acc: 0, surgeT: 9 };
+    if (recipe.boss === 'drain') { const a = -Math.PI / 2 + (this.rng() - 0.5) * 1.2; this.drain = { x: 0.5 + Math.cos(a) * (this.pondR - 0.13), y: 0.5 + Math.sin(a) * (this.pondR - 0.13), t: -4, active: false, warn: 0 }; }
+    this.teach.drops = [];
+    this.fish.t = 5;
+    this.frog.t = 6;
+    this.hud.levelLabel = `${recipe.season ? 'Storm Season' : world.name} · ${i + 1}`;
+    this.attract = false;
+    this.state = 'playing';
+    this.save.runs++;
+    this._store();
+    if (recipe.hint) this.hint(recipe.hint, 4.5);
+  }
+
+  _makeObstacles(recipe) {
+    const pads = [], stalks = [];
+    const R = this.pondR;
+    const place = (r, minC, tries) => {
+      for (let k = 0; k < tries; k++) {
+        const a = this.rng() * TAU, d = minC + Math.sqrt(this.rng()) * Math.max(0.05, R - 0.07 - r - minC);
+        const x = 0.5 + Math.cos(a) * d, y = 0.5 + Math.sin(a) * d;
+        let ok = true;
+        for (const p of pads) if (Math.hypot(p.x - x, p.y - y) < p.r + r + 0.035) ok = false;
+        for (const s of stalks) if (Math.hypot(s.x - x, s.y - y) < s.r + r + 0.025) ok = false;
+        if (ok) return { x, y };
+      }
+      return null;
+    };
+    for (let i = 0; i < (recipe.roster.pads || 0); i++) { const r = 0.035 + this.rng() * 0.03; const p = place(r, 0.15, 40); if (p) pads.push({ x: p.x, y: p.y, r, rot: this.rng() * TAU }); }
+    for (let i = 0; i < (recipe.roster.stalks || 0); i++) { const r = 0.0105; const p = place(r, 0.1, 40); if (p) stalks.push({ x: p.x, y: p.y, r }); }
+    this.obstacles = { pads, stalks };
+    this.water.setObstacles(pads, stalks);
+  }
+
+  _padAt(x, y) {
+    for (const p of this.obstacles.pads) if (Math.hypot(x - p.x, y - p.y) < p.r * 0.9) return p;
+    return null;
+  }
+
+  _blocked(x, y, pad = 0.02) {
+    if (this._padAt(x, y)) return true;
+    for (const s of this.obstacles.stalks) if (Math.hypot(x - s.x, y - s.y) < s.r + pad) return true;
+    return false;
+  }
+
+  _makeMarkers(n) {
+    this.markers = [];
+    let px = 0.5, py = 0.5;
+    for (let k = 0; k < n; k++) {
+      let x = 0.5, y = 0.5, tries = 0;
+      do {
+        const a = this.rng() * TAU, r = 0.12 + Math.sqrt(this.rng()) * (this.pondR - 0.22);
+        x = 0.5 + Math.cos(a) * r; y = 0.5 + Math.sin(a) * r; tries++;
+      } while ((Math.hypot(x - px, y - py) < 0.22 || this._blocked(x, y, 0.04)) && tries < 40);
+      this.markers.push({ x, y, done: false, t: 0 });
+      px = x; py = y;
+    }
+  }
+
+  _updateMarkers(dt) {
+    const m = this.markers.find((k) => !k.done);
+    if (!m) return;
+    m.t += dt;
+    const s = this.strider;
+    if (Math.hypot(s.x - m.x, s.y - m.y) < 0.03) {
+      m.done = true; this.stats.markers++; this.score += 120;
+      this.audio.eat();
+      this.water.disc(m.x, m.y, 0.02, 0.03);
+      this.fx.push({ type: 'spark', x: m.x, y: m.y, t: 0, dur: 0.6, col: [0.6, 1, 0.9], size: 0.04 });
+      this.fx.push({ type: 'text', x: m.x, y: m.y, t: 0, dur: 1, pts: 120 });
+    }
+  }
+
+  _updateLevel(dt) {
+    const L = this.level;
+    L.remaining = Math.max(0, L.recipe.duration - this.time);
+    this._updateMarkers(dt);
+    const gp = goalProgress(L.recipe.goal, this);
+    this.hud.goal = gp.text;
+    this.hud.remaining = L.remaining;
+    const survive = L.recipe.goal.type === 'survive';
+    this.hud.stars = [gp.done || (survive && L.remaining <= 0), ...L.recipe.stars.map((st) => !!STARS[st.key].test(this, st.n))];
+    if (gp.done) this._levelCleared();
+    else if (L.remaining <= 0) { if (survive) this._levelCleared(); else this._finish('timeout'); }
+  }
+
+  _levelCleared() {
+    this.state = 'cleared';
+    this.clearT = 1.7;
+    this.envOverride = { rain: 0, aimed: 0, hail: 0, cars: 0 };
+    this.audio.chime();
+    this.hint(this.level.recipe.goal.type === 'survive' ? 'the storm passes' : 'done', 2);
+    this.zones.push({ x: this.strider.x, y: this.strider.y, r: 0.3, s: 0.6, t: 0, dur: 2 });
+  }
+
+  _finishLevel(reason) {
+    this.state = 'ended';
+    const L = this.level, r = L.recipe;
+    const cleared = reason === 'cleared';
+    const stars = cleared ? [true, ...r.stars.map((st) => !!STARS[st.key].test(this, st.n))] : [false, false, false];
+    const nStars = stars.filter(Boolean).length;
+    let score = Math.floor(this.score) + (cleared ? 500 : 0) + 250 * Math.max(0, nStars - 1);
+    score = Math.round(score * (this.skeletonMult || 1));
+    const c = this.save.campaign;
+    const prevStars = c.stars[r.id] || 0;
+    c.stars[r.id] = Math.max(prevStars, nStars);
+    c.best[r.id] = Math.max(c.best[r.id] || 0, score);
+    if (r.season && cleared) c.season = Math.max(c.season, r.i + 1);
+    const moltOffered = cleared && prevStars === 0 && ((r.i % 5 === 4) || !!r.boss);
+    this._store();
+    const res = { kind: 'level', reason, cause: this.cause, recipe: r, w: L.w, i: L.i, cleared, stars, nStars, prevStars, score, stats: this.stats, time: this.time, moltOffered, totalStars: this.totalStars() };
+    if (this.onEnd) this.onEnd(res);
+  }
 
   // ---- public control ----------------------------------------------------
   startRun(mode = 'daily') {
     this.mode = mode;
     const seed = mode === 'daily' ? dailySeed() : (Math.random() * 1e9) | 0;
+    this.script = null;
+    this.applyWorld(CLASSIC_WORLD);
     this._resetWorld(seed);
+    this._applySkeleton(this.selectedSkeleton());
     const lv = this.levels();
-    this.senseR = 0.16 + 0.05 * lv.sense;
+    this.senseR = (0.16 + 0.05 * lv.sense) * this.skeleton.stats.sense;
     if (mode === 'daily' && this.save.daily && this.save.daily.key === dailyKey() && this.save.daily.trace) {
       this.ghostTrace = this.save.daily.trace;
     } else if (this.save.ghost) {
@@ -1923,6 +2816,10 @@ class Game {
   toTitle() {
     this.attract = true;
     this.state = 'title';
+    this._applySkeleton(SKELETONS[0]);
+    this.script = null;
+    this.mode = 'daily';
+    if (this.world !== CLASSIC_WORLD) this.applyWorld(CLASSIC_WORLD);
     this._resetWorld((Math.random() * 1e9) | 0);
     this.strider.visible = true;
   }
@@ -1947,37 +2844,8 @@ class Game {
 
   // ---- director ----------------------------------------------------------
   envAt(tRaw) {
-    let t = tRaw;
-    let loop = 0;
-    if (t > RUN_END && this.endless) {
-      const span = LOOP_END - LOOP_START;
-      const over = t - RUN_END;
-      loop = 1 + Math.floor(over / span);
-      t = LOOP_START + (over % span);
-    }
-    const k = 1 + 0.28 * loop;
-    const e = {
-      t, loop,
-      rain: k * kf(t, [[0, 0], [57, 0], [62, 0.2], [150, 0.35], [168, 1.5], [225, 2.2], [240, 1.2], [252, 0.5], [330, 0.6], [344, 3.0], [405, 3.8], [420, 2.2], [430, 0]]),
-      night: kf(t, [[236, 0], [250, 1], [330, 1], [344, 0.6], [418, 0.6], [426, 0.15], [432, 0]]),
-      storm: kf(t, [[0, 0], [140, 0.15], [170, 0.85], [238, 0.6], [330, 0.7], [344, 1], [418, 0.9], [428, 0.2], [432, 0]]),
-      dawn: kf(t, [[0, 1], [45, 1], [80, 0], [418, 0], [426, 1]]),
-      wind: kf(t, [[0, 0.05], [60, 0.25], [95, 0.9], [150, 0.9], [240, 0.45], [330, 0.6], [344, 1.3], [418, 0.6], [432, 0.1]]),
-      gnatRate: kf(t, [[0, 0.4], [60, 0.3], [150, 0.3], [240, 0.22], [330, 0.28], [420, 0.1], [432, 0]]),
-      slickRate: k * kf(t, [[0, 0], [60, 0.04], [150, 0.03], [240, 0.012], [330, 0.035], [420, 0]]),
-      fish: Math.min(1.4, k * kf(t, [[0, 0], [85, 0], [95, 0.6], [240, 0.5], [330, 1.0], [420, 0]])),
-      frog: t >= 236 && t < 420 ? 1 : 0,
-      bugs: t >= 244 && t < 420 ? Math.min(2, (t < 272 ? 1 : 2)) : 0,
-      dropSize: kf(t, [[0, 0.7], [150, 0.8], [240, 0.8], [330, 0.9], [420, 0.9]]) * (1 + 0.1 * loop),
-    };
-    let ph = 'dawn';
-    for (const [name, t0] of PHASES) if (t >= t0) ph = name;
-    if (tRaw > RUN_END && this.endless) ph = 'endless · ' + ph;
-    e.phase = ph;
+    const e = this.script ? this.script.envAt(tRaw) : classicEnv(tRaw, this.endless);
     if (this.envOverride) Object.assign(e, this.envOverride);
-    const windAng = 0.6 + 0.35 * Math.sin(t * 0.02) + 1.5 * loop;
-    e.windX = Math.cos(windAng) * e.wind;
-    e.windY = Math.sin(windAng) * e.wind;
     return e;
   }
 
@@ -1988,7 +2856,7 @@ class Game {
     if (this.state === 'ended') { this._updateAmbient(dt, this.envAt(this.time), 0.2); return; }
     const env = this.envAt(this.time);
     this.env = env;
-    if (this.state === 'playing' || this.state === 'sinking' || this.state === 'sunrise') this.time += dt;
+    if (this.state === 'playing' || this.state === 'sinking' || this.state === 'sunrise' || this.state === 'cleared') this.time += dt;
 
     this.phaseT += dt;
     this.hud.phase = env.phase;
@@ -1998,7 +2866,14 @@ class Game {
     this.comboT -= dt;
     if (this.comboT <= 0) this.combo = 0;
 
+    const dr = this.world.drift;
+    this.driftX = dr[0] * (0.6 + 0.5 * env.wind); this.driftY = dr[1] * (0.6 + 0.5 * env.wind);
+    this._updateDrain(dt);
     this._updateAmbient(dt, env, 1);
+    this._updateCars(dt, env);
+    this._updateHail(dt, env);
+    this._updateSpout(dt);
+    this._updateEgret(dt, env);
     this._updateDrops(dt, env);
     this._updateGnats(dt, env);
     this._updateSlicks(dt, env);
@@ -2015,15 +2890,21 @@ class Game {
       this.score += dt * 10;
       this.traceT += dt;
       if (this.traceT >= 0.5) { this.traceT = 0; this.trace.push([Math.round(this.time * 10) / 10, +this.strider.x.toFixed(3), +this.strider.y.toFixed(3)]); }
-      if (!this.endless && this.time >= RUN_END - 10 && this.state === 'playing') {
+      if (this.level) this._updateLevel(dt);
+      if (!this.level && !this.endless && this.time >= RUN_END - 10 && this.state === 'playing') {
         // the storm fades; reveal begins at sunrise
         if (this.time >= RUN_END) this._sunrise();
       }
-      if (this.endless && env.loop > this.stats.loops) {
+      if (!this.level && this.endless && env.loop > this.stats.loops) {
         this.stats.loops = env.loop;
         this.score += 1000;
         this.hint('storm ' + (env.loop + 1), 2.5);
       }
+    } else if (this.state === 'cleared') {
+      this.clearT -= dt;
+      const s = this.strider; s.vx *= 0.96; s.vy *= 0.96; s.x += s.vx * dt; s.y += s.vy * dt; s.speed = Math.hypot(s.vx, s.vy);
+      this._updateLegs(dt, 0);
+      if (this.clearT <= 0) this._finish('cleared');
     } else if (this.state === 'sinking') {
       this._updateSinking(dt);
     } else if (this.state === 'sunrise') {
@@ -2065,7 +2946,7 @@ class Game {
     this.spawnAcc.wind += dt * env.wind * 14 * k;
     while (this.spawnAcc.wind >= 1) {
       this.spawnAcc.wind -= 1;
-      const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * POND_R;
+      const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * this.pondR;
       this.water.disc(0.5 + Math.cos(a) * r, 0.5 + Math.sin(a) * r, 0.012 + Math.random() * 0.01, (Math.random() - 0.5) * 0.004 * (0.5 + env.wind));
     }
     this._updateSplashes(dt);
@@ -2084,9 +2965,11 @@ class Game {
     const lv = this.levels();
     const dir = this.inputDir;
     const dl = Math.hypot(dir.x, dir.y);
-    const inSlick = this._inSlick(s.x, s.y);
-    const heavy = Math.max(0, s.weight - 0.9);
-    const maxV = 0.21 * (1 + 0.12 * lv.legs) / (1 + 0.45 * heavy) * (inSlick ? 0.78 : 1) * (s.hunger <= 0 ? 0.8 : 1);
+    const sk = this.skeleton.stats;
+    const inSlickRaw = this._inSlick(s.x, s.y);
+    const inSlick = inSlickRaw && !sk.slickImmune;
+    const heavy = Math.max(0, s.weight - 0.9 * sk.weight);
+    const maxV = 0.21 * (1 + 0.12 * lv.legs) / (1 + 0.45 * heavy) * (inSlick ? 0.78 : 1) * (s.hunger <= 0 ? 0.8 : 1) * (s.onPad ? 0.6 : 1) * (this.skeleton ? this.skeleton.stats.speed : 1);
     const drag = dl > 0.01 ? 1.3 : 1.9;
     if (dl > 0.01) {
       const acc = maxV * drag * 1.05;
@@ -2097,10 +2980,20 @@ class Game {
     s.vx *= k; s.vy *= k;
     s.speed = Math.hypot(s.vx, s.vy);
     if (s.speed > maxV) { s.vx *= maxV / s.speed; s.vy *= maxV / s.speed; s.speed = maxV; }
-    s.x += s.vx * dt; s.y += s.vy * dt;
+    s.x += (s.vx + this.driftX) * dt; s.y += (s.vy + this.driftY) * dt;
+    // stalks are solid posts
+    for (const st of this.obstacles.stalks) {
+      const dx = s.x - st.x, dy = s.y - st.y, d = Math.hypot(dx, dy), rr = st.r + 0.007;
+      if (d < rr && d > 1e-6) {
+        s.x = st.x + dx / d * rr; s.y = st.y + dy / d * rr;
+        const vn = (s.vx * dx + s.vy * dy) / d;
+        if (vn < 0) { s.vx -= dx / d * vn; s.vy -= dy / d * vn; }
+      }
+    }
+    s.onPad = !!this._padAt(s.x, s.y);
     // stay on the pond
     const dx = s.x - 0.5, dy = s.y - 0.5, d = Math.hypot(dx, dy);
-    const lim = POND_R - 0.02;
+    const lim = this.pondR - 0.02;
     if (d > lim) {
       s.x = 0.5 + dx / d * lim; s.y = 0.5 + dy / d * lim;
       const vn = (s.vx * dx + s.vy * dy) / d;
@@ -2124,22 +3017,24 @@ class Game {
     const wave = slope * 0.085 + Math.abs(smp.h) * 5;
     this.waveAtStrider = wave;
     const tipThr = 0.48 - 0.10 * heavy;
-    const hairs = 1 - 0.16 * lv.hairs;
+    const hairs = (1 - 0.16 * lv.hairs) / sk.tension;
     const decay = Math.exp(-dt / 4);
     for (const k in this.dmg) this.dmg[k] *= decay;
-    if (wave > tipThr && s.immune <= 0) {
+    if (wave > tipThr && s.immune <= 0 && !s.onPad) {
       const dmg = Math.min(0.7, (wave - tipThr) * 1.5) * dt * hairs;
       s.tension -= dmg;
       this.dmg.wave += dmg;
-      if (s.hurtT <= 0 && dmg > 0.004) { s.hurtT = 0.5; this.audio.hurt(); this.combo = 0; }
-    } else if (wave < tipThr * 0.6 && !inSlick && s.hunger > 0) {
-      s.tension += dt * 0.035;
+      if (s.hurtT <= 0 && dmg > 0.004) { s.hurtT = 0.5; this.audio.hurt(); this.combo = 0; this.stats.hits++; }
+    } else if ((wave < tipThr * 0.6 || s.onPad) && !inSlick && s.hunger > 0) {
+      s.tension += dt * (s.onPad ? 0.09 : 0.035);
     }
+    if (inSlickRaw && !s.wasInSlick) this.stats.slickTouches++;
+    s.wasInSlick = inSlickRaw;
     if (inSlick) { s.tension -= dt * 0.11; this.dmg.slick += dt * 0.11; if (s.hurtT <= 0) { s.hurtT = 1.2; this.hint('slick · surface weakens', 2); } }
     s.hunger -= dt / 110;
     if (s.hunger <= 0) { s.hunger = 0; s.tension -= dt * 0.05; this.dmg.hunger += dt * 0.05; }
     s.weight = Math.max(0, s.weight - dt * 0.035);
-    if (s.weight > 1) { s.tension -= dt * 0.06 * (s.weight - 1); this.dmg.weight += dt * 0.06 * (s.weight - 1); }
+    if (s.weight > sk.weight) { s.tension -= dt * 0.06 * (s.weight - sk.weight); this.dmg.weight += dt * 0.06 * (s.weight - sk.weight); }
     s.tension = clamp(s.tension, 0, 1);
     if (this.god) s.tension = Math.max(s.tension, 0.5);
     if (s.tension <= 0) this._sink();
@@ -2172,7 +3067,7 @@ class Game {
     if (this.state !== 'playing' || s.pulseCool > 0) return;
     const lv = this.levels();
     const sign = this.phaseSign();
-    const strength = 1 + 0.22 * lv.pulse;
+    const strength = (1 + 0.22 * lv.pulse) * this.skeleton.stats.pulse;
     s.pulseCool = 0.42;
     s.lastPulse = 0;
     s.immune = Math.max(s.immune, 0.22);
@@ -2217,30 +3112,32 @@ class Game {
     else s.strokePhase = s.strokePhase > 0.02 ? (s.strokePhase + dt / 0.6) % 1 : 0;
     const ph = s.strokePhase;
     const strokeStart = moving && prev > ph;
+    const look = this.skeleton.look, sc = look.scale, ll = look.legLen, dimple = this.skeleton.stats.dimple;
     for (let i = 0; i < 6; i++) {
       const def = LEG_DEF[i];
       const f = s.feet[i];
-      let ox = def.rest[0], oy = def.rest[1], w = 1;
+      let ox = def.rest[0] * sc * ll, oy = def.rest[1] * sc * ll, w = 1;
       if (def.kind === 'mid') {
-        if (ph < 0.4) { ox += lerp(0.012, -0.015, ph / 0.4); w = 1; }
-        else { const q = (ph - 0.4) / 0.6; ox += lerp(-0.015, 0.012, q); w = moving ? 0.12 : 1; }
-        if (!moving && ph === 0) { ox = def.rest[0]; w = 1; }
+        if (ph < 0.4) { ox += lerp(0.012, -0.015, ph / 0.4) * sc; w = 1; }
+        else { const q = (ph - 0.4) / 0.6; ox += lerp(-0.015, 0.012, q) * sc; w = moving ? 0.12 : 1; }
+        if (!moving && ph === 0) { ox = def.rest[0] * sc * ll; w = 1; }
       } else if (def.kind === 'rear') {
-        ox += 0.004 * Math.sin(TAU * ph + Math.PI) * (moving ? 1 : 0);
+        ox += 0.004 * sc * Math.sin(TAU * ph + Math.PI) * (moving ? 1 : 0);
       }
       // rear legs steer slightly with velocity
       const fx = s.x + ox * c - oy * sn, fy = s.y + ox * sn + oy * c;
-      const hx = s.x + def.hip[0] * c - def.hip[1] * sn, hy = s.y + def.hip[0] * sn + def.hip[1] * c;
-      f.x = fx; f.y = fy; f.r = def.r; f.w = w * (1 - s.sink);
+      const hx = s.x + (def.hip[0] * c - def.hip[1] * sn) * sc, hy = s.y + (def.hip[0] * sn + def.hip[1] * c) * sc;
+      const onPad = this.obstacles.pads.length && this._padAt(fx, fy);
+      f.x = fx; f.y = fy; f.r = def.r * sc * dimple; f.w = onPad ? 0 : w * (1 - s.sink);
       f.hx = hx; f.hy = hy;
       // knee: 55% along, pushed outward from body
       const side = Math.sign(def.rest[1]);
       const px = -sn * side, py = c * side; // outward perpendicular
-      const out = def.kind === 'front' ? 0.004 : 0.009;
+      const out = (def.kind === 'front' ? 0.004 : 0.009) * sc * ll;
       f.kx = hx + (fx - hx) * 0.5 + px * out;
       f.ky = hy + (fy - hy) * 0.5 + py * out;
-      if (strokeStart && def.kind === 'mid' && this.state !== 'title') {
-        this.water.disc(fx, fy, 0.012, -(0.003 + 0.012 * speedNorm));
+      if (strokeStart && def.kind === 'mid' && this.state !== 'title' && !onPad) {
+        this.water.disc(fx, fy, 0.012 * sc, -(0.003 + 0.012 * speedNorm) * sc);
       }
     }
     if (strokeStart && this.state === 'title') {
@@ -2284,6 +3181,7 @@ class Game {
   }
 
   _finish(reason) {
+    if (this.level) { this._finishLevel(reason); return; }
     this.state = 'ended';
     const score = Math.floor(this.score);
     const res = { reason, cause: this.cause, score, stats: this.stats, time: this.time, mode: this.mode, newBest: false, newDaily: false, endlessOffered: reason === 'survived' && !this.endless };
@@ -2308,7 +3206,8 @@ class Game {
     this.spawnAcc.gnat += dt * env.gnatRate * (live < 7 ? 1 : 0);
     while (this.spawnAcc.gnat >= 1) {
       this.spawnAcc.gnat -= 1;
-      const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (POND_R - 0.06);
+      let a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (this.pondR - 0.06);
+      for (let k = 0; k < 6 && this._blocked(0.5 + Math.cos(a) * r, 0.5 + Math.sin(a) * r, 0.03); k++) { a = this.rng() * TAU; r = Math.sqrt(this.rng()) * (this.pondR - 0.06); }
       const mosquito = this.rng() < 0.25;
       this.gnats.push({ x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r, kind: mosquito ? 1 : 0, state: 'fall', t: 0, life: mosquito ? 13 : 24, burst: this.rng() * 0.8, wing: this.rng() * TAU, stun: 0, heading: this.rng() * TAU, size: mosquito ? 0.012 : 0.0085 });
     }
@@ -2333,8 +3232,8 @@ class Game {
             if (g.wiggleT <= 0) { g.wiggleT = 0.07; g.wiggle--; this.water.disc(g.x, g.y, 0.006, (g.kind ? 0.0075 : 0.0045) * (g.wiggle % 2 ? 1 : -0.8)); }
           }
           // drift
-          g.x += (Math.sin(g.heading) * 0.002 + env.windX * 0.004) * dt;
-          g.y += (Math.cos(g.heading) * 0.002 + env.windY * 0.004) * dt;
+          g.x += (Math.sin(g.heading) * 0.002 + env.windX * 0.004 + this.driftX) * dt;
+          g.y += (Math.cos(g.heading) * 0.002 + env.windY * 0.004 + this.driftY) * dt;
           if (g.t > g.life) { g.state = 'escape'; g.t = 0; }
         }
         // a strong crest flips it
@@ -2345,7 +3244,7 @@ class Game {
           this.fx.push({ type: 'spark', x: g.x, y: g.y, t: 0, dur: 0.5, col: [1, 0.9, 0.6], size: 0.02 });
         }
         const dd = Math.hypot(g.x - 0.5, g.y - 0.5);
-        if (dd > POND_R - 0.01) { g.state = 'escape'; g.t = 0; }
+        if (dd > this.pondR - 0.01) { g.state = 'escape'; g.t = 0; }
       } else if (g.state === 'escape') {
         g.x += Math.cos(g.heading) * 0.12 * dt; g.y += Math.sin(g.heading) * 0.12 * dt;
         if (g.t > 0.8) g.state = 'gone';
@@ -2356,17 +3255,19 @@ class Game {
 
   _checkEating() {
     const s = this.strider;
-    const hx = s.x + Math.cos(s.heading) * 0.016, hy = s.y + Math.sin(s.heading) * 0.016;
+    const sc = this.skeleton.look.scale;
+    const hx = s.x + Math.cos(s.heading) * 0.016 * sc, hy = s.y + Math.sin(s.heading) * 0.016 * sc;
     for (const g of this.gnats) {
       if (g.state !== 'struggle') continue;
       const d = Math.hypot(g.x - hx, g.y - hy);
-      if (d < 0.016 + g.size * 0.6) {
+      if (d < 0.016 * sc + g.size * 0.6) {
         g.state = 'gone';
         const pts = (g.kind ? 80 : 50) + (g.stun > 0 ? 60 : 0);
         this.score += pts;
         this.stats.gnats++;
         s.hunger = Math.min(1, s.hunger + (g.kind ? 0.45 : 0.32));
         s.weight += g.kind ? 0.42 : 0.28;
+        this.stats.maxWeight = Math.max(this.stats.maxWeight, s.weight);
         this.audio.eat();
         this.fx.push({ type: 'spark', x: g.x, y: g.y, t: 0, dur: 0.45, col: [1, 0.95, 0.7], size: 0.016 });
         this.fx.push({ type: 'text', x: g.x, y: g.y, t: 0, dur: 0.9, pts });
@@ -2386,30 +3287,170 @@ class Game {
     // teaching drops: placed near the player so the first cancel comes early
     if (this.state === 'playing' && !this.endless && this.teach.i < this.teach.drops.length && this.time >= this.teach.drops[this.teach.i]) {
       this.teach.i++;
-      const s = this.strider;
-      const a = this.rng() * TAU, d = 0.13;
-      let x = s.x + Math.cos(a) * d, y = s.y + Math.sin(a) * d;
-      const dd = Math.hypot(x - 0.5, y - 0.5);
-      if (dd > POND_R - 0.05) { x = 0.5 + (x - 0.5) / dd * (POND_R - 0.08); y = 0.5 + (y - 0.5) / dd * (POND_R - 0.08); }
-      this._spawnDrop(x, y, 0.9);
+      this._spawnAimedDrop(0.9);
       if (this.teach.i === 1) this.hint('a drop · pulse when the ring is dark', 3.5);
+    }
+    // aimed drops (glass levels): land a set distance from the player
+    if (this.state === 'playing' && env.aimed > 0) {
+      this.spawnAcc.aimed += dt * env.aimed;
+      while (this.spawnAcc.aimed >= 1) { this.spawnAcc.aimed -= 1; this._spawnAimedDrop(0.85 + this.rng() * 0.2); }
     }
     for (const d of this.drops) {
       d.t += dt;
       if (d.t >= d.fall) {
         d.done = true;
-        const onPond = Math.hypot(d.x - 0.5, d.y - 0.5) < POND_R;
-        if (onPond) {
-          this.water.disc(d.x, d.y, 0.011 + 0.009 * d.size, 0.08 + 0.09 * d.size);
-          this.splashes.push({ x: d.x, y: d.y, t: 0, dur: 0.38, size: 0.016 + 0.014 * d.size, seed: Math.random() * 10 });
+        const onPond = Math.hypot(d.x - 0.5, d.y - 0.5) < this.pondR;
+        const padHit = onPond && this._padAt(d.x, d.y);
+        if (onPond && !padHit) {
+          if (d.kind === 'hail') {
+            this.water.disc(d.x, d.y, 0.009, 0.07);
+            this.splashes.push({ x: d.x, y: d.y, t: 0, dur: 0.25, size: 0.009, seed: Math.random() * 10 });
+          } else {
+            this.water.disc(d.x, d.y, 0.011 + 0.009 * d.size, 0.08 + 0.09 * d.size);
+            this.splashes.push({ x: d.x, y: d.y, t: 0, dur: 0.38, size: 0.016 + 0.014 * d.size, seed: Math.random() * 10 });
+          }
         }
-        this.audio.blip(d.size * (onPond ? 1 : 0.4), clamp((d.x - this.cam.x) * 3, -1, 1));
+        if (d.kind === 'hail') this.audio.blip(0.1, clamp((d.x - this.cam.x) * 3, -1, 1));
+        else this.audio.blip(d.size * (onPond && !padHit ? 1 : 0.4), clamp((d.x - this.cam.x) * 3, -1, 1));
       }
     }
     this.drops = this.drops.filter((d) => !d.done);
   }
 
-  _spawnDrop(x, y, size) { this.drops.push({ x, y, size, t: 0, fall: 1.15 }); }
+  _spawnDrop(x, y, size, fall = 1.15, kind = 'rain') { this.drops.push({ x, y, size, t: 0, fall, kind }); }
+
+  _spawnAimedDrop(size) {
+    const s = this.strider;
+    const a = this.rng() * TAU, d = 0.12 + this.rng() * 0.03;
+    let x = s.x + Math.cos(a) * d, y = s.y + Math.sin(a) * d;
+    const dd = Math.hypot(x - 0.5, y - 0.5);
+    if (dd > this.pondR - 0.05) { x = 0.5 + (x - 0.5) / dd * (this.pondR - 0.08); y = 0.5 + (y - 0.5) / dd * (this.pondR - 0.08); }
+    this._spawnDrop(x, y, size);
+  }
+
+  // ---- cars (ditch): a sweeping shadow, then a line of heavy drops --------
+  _updateCars(dt, env) {
+    if (!this.car && env.cars > 0 && this.state === 'playing') {
+      this.carT -= dt;
+      if (this.carT <= 0) {
+        this.carT = (60 / env.cars) * (0.6 + this.rng() * 0.6);
+        this.car = { t: 0, dur: 1.5, side: this.rng() < 0.5 ? 1 : -1, y: 0.5 + this.pondR + 0.04, drops: 5 + Math.round(this.rng() * 2), dropT: 0.9, nextDrop: 0.9 };
+        this.audio.rumble(1.2);
+        this.hint('a car', 1.5);
+      }
+    }
+    const c = this.car;
+    if (!c) return;
+    c.t += dt;
+    c.x = c.side > 0 ? lerp(-0.25, 1.25, c.t / c.dur) : lerp(1.25, -0.25, c.t / c.dur);
+    if (c.t >= c.nextDrop && c.drops > 0) {
+      c.nextDrop += 0.07; c.drops--;
+      const x = c.x + (this.rng() - 0.5) * 0.05, y = c.y - 0.1 - this.rng() * 0.14;
+      if (Math.hypot(x - 0.5, y - 0.5) < this.pondR - 0.02) this._spawnDrop(x, y, 1.15, 0.55, 'car');
+    }
+    if (c.t > c.dur) this.car = null;
+  }
+
+  // ---- hail (tarn): bursts of small sharp stones --------------------------
+  _updateHail(dt, env) {
+    if (!(env.hail > 0) || this.state !== 'playing') return;
+    this.hailT -= dt;
+    if (this.hailT > 0) return;
+    this.hailT = (4 + this.rng() * 3) / env.hail;
+    const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (this.pondR - 0.1);
+    const cx = 0.5 + Math.cos(a) * r, cy = 0.5 + Math.sin(a) * r;
+    const n = 8 + Math.round(6 * env.hail);
+    for (let i = 0; i < n; i++) {
+      const b = this.rng() * TAU, d = Math.sqrt(this.rng()) * 0.13;
+      this._spawnDrop(cx + Math.cos(b) * d, cy + Math.sin(b) * d, 0.35, 0.45 + this.rng() * 0.35, 'hail');
+    }
+  }
+
+  // ---- overflow spout (barrel boss) ---------------------------------------
+  _updateSpout(dt) {
+    const sp = this.spout;
+    if (!sp || this.state !== 'playing') return;
+    sp.acc += dt * 1.8;
+    while (sp.acc >= 1) { sp.acc -= 1; this._spawnDrop(sp.x + (this.rng() - 0.5) * 0.03, sp.y - 0.02 - this.rng() * 0.03, 0.8, 0.45, 'spout'); }
+    sp.surgeT -= dt;
+    if (sp.surgeT <= 0) {
+      sp.surgeT = 11 + this.rng() * 5;
+      for (let i = 0; i < 7; i++) this._spawnDrop(sp.x + (this.rng() - 0.5) * 0.08, sp.y - 0.02 - this.rng() * 0.08, 1.0, 0.4 + i * 0.06, 'spout');
+      this.audio.rumble(1.0);
+      this.hint('surge', 1.2);
+    }
+  }
+
+  // ---- storm drain (ditch boss): pulses of pull toward the grate ----------
+  _updateDrain(dt) {
+    const d = this.drain;
+    if (!d) return;
+    d.t += dt;
+    const phase = d.t % 13;
+    const wasActive = d.active;
+    d.active = phase > 0 && phase < 4.5;
+    d.warn = phase < 0 ? 0 : (phase > 11.5 ? (phase - 11.5) / 1.5 : 0);
+    if (d.active && !wasActive) { this.audio.rumble(1.5); this.hint('the drain pulls', 1.5); }
+    if (!d.active) return;
+    this.water.disc(d.x, d.y, 0.03, -0.0012);
+    const pull = (x, y, k) => { const dx = d.x - x, dy = d.y - y, dist = Math.hypot(dx, dy) + 1e-4; const f = k / Math.max(dist, 0.1); return [dx / dist * f, dy / dist * f]; };
+    const s = this.strider;
+    if (this.state === 'playing') {
+      const [px, py] = pull(s.x, s.y, 0.16);
+      s.vx += px * dt * 3; s.vy += py * dt * 3;
+      if (Math.hypot(s.x - d.x, s.y - d.y) < 0.035) { s.tension -= dt * 1.2; this.dmg.drain += dt * 1.2; if (s.hurtT <= 0) { s.hurtT = 0.4; this.audio.hurt(); this.stats.hits++; } }
+    }
+    for (const g of this.gnats) { if (g.state !== 'struggle') continue; const [px, py] = pull(g.x, g.y, 0.08); g.x += px * dt; g.y += py * dt; if (Math.hypot(g.x - d.x, g.y - d.y) < 0.025) g.state = 'gone'; }
+    for (const sl of this.slicks) { const [px, py] = pull(sl.x, sl.y, 0.05); sl.x += px * dt; sl.y += py * dt; }
+  }
+
+  // ---- egret (paddy): a shadow glides in, locks, strikes --------------------
+  _updateEgret(dt, env) {
+    const e = this.egret, s = this.strider;
+    const aggro = env.egret || 0;
+    if (e.state === 'away') {
+      e.alpha = 0;
+      if (aggro > 0 && this.state === 'playing') {
+        e.t -= dt;
+        if (e.t <= 0) {
+          const a = this.rng() * TAU;
+          e.x = 0.5 + Math.cos(a) * (this.pondR + 0.2); e.y = 0.5 + Math.sin(a) * (this.pondR + 0.2);
+          e.sx = e.x; e.sy = e.y;
+          e.state = 'glide'; e.t = 0; e.locked = false; e.size = 0.09;
+          this.audio.rumble(0.8);
+          this.hint('a shadow from above', 2);
+        }
+      }
+      return;
+    }
+    e.t += dt;
+    e.flap = Math.sin(this.wall * 9);
+    if (e.state === 'glide') {
+      const dur = 2.4;
+      if (!e.locked) { e.tx = s.x + s.vx * 0.5; e.ty = s.y + s.vy * 0.5; if (e.t >= dur - 1.0) e.locked = true; }
+      const k = smooth(e.t / dur);
+      e.x = lerp(e.sx, e.tx, k); e.y = lerp(e.sy, e.ty, k);
+      e.heading = Math.atan2(e.ty - e.sy, e.tx - e.sx);
+      e.size = lerp(0.09, 0.17, k);
+      e.alpha = lerp(0.2, 0.65, k);
+      if (e.t >= dur) {
+        e.state = 'lift'; e.t = 0;
+        this.water.disc(e.tx, e.ty, 0.04, 0.32);
+        this.splashes.push({ x: e.tx, y: e.ty, t: 0, dur: 0.5, size: 0.05, seed: 7 });
+        this.audio.splashBig();
+        const d = Math.hypot(s.x - e.tx, s.y - e.ty);
+        if (d < 0.05 && this.state === 'playing' && !s.onPad) {
+          s.tension -= 0.5; this.dmg.egret += 0.5; s.hurtT = 1; this.audio.hurt(); this.combo = 0; this.stats.hits++;
+          this.hint('the egret', 2);
+        } else if (this.state === 'playing') { this.score += 60; this.fx.push({ type: 'text', x: e.tx, y: e.ty, t: 0, dur: 1, pts: 60 }); }
+      }
+    } else if (e.state === 'lift') {
+      const k = e.t / 1.4;
+      e.x += Math.cos(e.heading) * 0.35 * dt; e.y += Math.sin(e.heading) * 0.35 * dt;
+      e.size = lerp(0.17, 0.08, k); e.alpha = lerp(0.65, 0, k);
+      if (e.t >= 1.4) { e.state = 'away'; e.t = (9 + this.rng() * 6) / Math.max(0.5, aggro); }
+    }
+  }
 
   _updateSplashes(dt) {
     for (const s of this.splashes) s.t += dt;
@@ -2424,16 +3465,16 @@ class Game {
       const wl = Math.hypot(env.windX, env.windY) || 0.2;
       const ux = -env.windX / wl, uy = -env.windY / wl;        // upwind
       const side = (this.rng() - 0.5) * 0.7;
-      const px = ux * (POND_R - 0.02) + -uy * side, py = uy * (POND_R - 0.02) + ux * side;
+      const px = ux * (this.pondR - 0.02) + -uy * side, py = uy * (this.pondR - 0.02) + ux * side;
       this.slicks.push({ x: 0.5 + px, y: 0.5 + py, r: 0.045 + this.rng() * 0.05, t: 0, kind: this.rng() < 0.5 ? 'oil' : 'soap' });
       if (!this.teach.slick && this.state === 'playing') { this.teach.slick = true; this.hint('a slick drifts in · keep off the rainbow', 3.5); }
     }
     for (const s of this.slicks) {
       s.t += dt;
-      s.x += (env.windX * 0.022 + Math.sin(s.t * 0.7) * 0.002) * dt;
-      s.y += (env.windY * 0.022 + Math.cos(s.t * 0.9) * 0.002) * dt;
+      s.x += (env.windX * 0.022 + Math.sin(s.t * 0.7) * 0.002 + this.driftX) * dt;
+      s.y += (env.windY * 0.022 + Math.cos(s.t * 0.9) * 0.002 + this.driftY) * dt;
       const d = Math.hypot(s.x - 0.5, s.y - 0.5);
-      if (d > POND_R + s.r + 0.02 || s.t > 150) s.dead = true;
+      if (d > this.pondR + s.r + 0.02 || s.t > 150) s.dead = true;
     }
     this.slicks = this.slicks.filter((s) => !s.dead);
   }
@@ -2474,7 +3515,7 @@ class Game {
       case 'hidden':
         f.visible = false; f.depth = 0.05; f.mouth = 0;
         if (aggro > 0 && f.t <= 0) {
-          f.state = 'prowl'; f.t = 12 + this.rng() * 8;
+          f.state = 'prowl'; f.t = (12 + this.rng() * 8) * (f.kind ? 0.45 : 1);
           const a = this.rng() * TAU; f.x = 0.5 + Math.cos(a) * 0.3; f.y = 0.5 + Math.sin(a) * 0.3; f.heading = a + Math.PI / 2;
           f.visible = true;
           if (!this.teach.fish && this.state === 'playing') { this.teach.fish = true; this.hint('something below · a bright crest scares it', 3.5); }
@@ -2489,7 +3530,7 @@ class Game {
         f.heading = Math.atan2(ny - f.y, nx - f.x);
         f.x = nx; f.y = ny;
         if (f.t <= 0 && this.state === 'playing') {
-          if (this.rng() < aggro * 0.8) { f.state = 'stalk'; f.t = 7; }
+          if (this.rng() < aggro * 0.8 || f.kind) { f.state = 'stalk'; f.t = 7; }
           else { f.state = 'retreat'; f.t = 1.2; }
         }
         break;
@@ -2499,7 +3540,7 @@ class Game {
         const ang = Math.atan2(s.y - f.y, s.x - f.x);
         let da = Math.atan2(Math.sin(ang - f.heading), Math.cos(ang - f.heading));
         f.heading += da * Math.min(1, dt * 2.2);
-        const sp = 0.075 * (1 + 0.3 * aggro);
+        const sp = 0.075 * (1 + 0.3 * aggro) * (f.kind ? 1.3 : 1);
         f.x += Math.cos(f.heading) * sp * dt; f.y += Math.sin(f.heading) * sp * dt;
         const d = Math.hypot(s.x - f.x, s.y - f.y);
         if (d < 0.09 || f.t <= 0) {
@@ -2522,8 +3563,8 @@ class Game {
           this.splashes.push({ x: mx, y: my, t: 0, dur: 0.5, size: 0.06, seed: 3 });
           this.audio.splashBig();
           const d = Math.hypot(s.x - mx, s.y - my);
-          if (d < 0.055 && this.state === 'playing') {
-            s.tension -= 0.45; this.dmg.fish += 0.45; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
+          if (d < 0.055 && this.state === 'playing' && !s.onPad) {
+            s.tension -= 0.45; this.dmg.fish += 0.45; s.hurtT = 1; this.audio.hurt(); this.combo = 0; this.stats.hits++;
             const push = 0.5; s.vx += (s.x - mx) / (d + 1e-4) * push; s.vy += (s.y - my) / (d + 1e-4) * push;
             this.hint('the god below', 2.5);
           }
@@ -2538,7 +3579,7 @@ class Game {
         f.depth = lerp(f.depth, 0.0, dt * 1.6);
         f.mouth = lerp(f.mouth, 0, dt * 6);
         f.x += Math.cos(f.heading + Math.PI) * 0.06 * dt; f.y += Math.sin(f.heading + Math.PI) * 0.06 * dt;
-        if (f.t <= 0) { f.state = 'hidden'; f.t = (16 + this.rng() * 18) / Math.max(0.3, aggro); f.visible = false; }
+        if (f.t <= 0) { f.state = 'hidden'; f.t = (16 + this.rng() * 18) / Math.max(0.3, aggro) * (f.kind ? 0.45 : 1); f.visible = false; }
         break;
     }
     // a strong crest on its back scares it off (strike)
@@ -2556,7 +3597,7 @@ class Game {
     }
     if (f.visible && f.state !== 'hidden') {
       const d = Math.hypot(f.x - 0.5, f.y - 0.5);
-      if (d > POND_R - 0.05) { f.x = 0.5 + (f.x - 0.5) / d * (POND_R - 0.05); f.y = 0.5 + (f.y - 0.5) / d * (POND_R - 0.05); }
+      if (d > this.pondR - 0.05) { f.x = 0.5 + (f.x - 0.5) / d * (this.pondR - 0.05); f.y = 0.5 + (f.y - 0.5) / d * (this.pondR - 0.05); }
     }
   }
 
@@ -2568,11 +3609,11 @@ class Game {
       fr.visible = false;
       if (env.frog && fr.t <= 0) {
         fr.ang = this.rng() * TAU;
-        fr.x = 0.5 + Math.cos(fr.ang) * (POND_R + 0.045);
-        fr.y = 0.5 + Math.sin(fr.ang) * (POND_R + 0.045);
+        fr.x = 0.5 + Math.cos(fr.ang) * (this.pondR + 0.045);
+        fr.y = 0.5 + Math.sin(fr.ang) * (this.pondR + 0.045);
         fr.face = fr.ang + Math.PI;
         fr.state = 'sit'; fr.t = 40 + this.rng() * 20; fr.visible = true; fr.glint = 0;
-        this.water.disc(0.5 + Math.cos(fr.ang) * (POND_R - 0.01), 0.5 + Math.sin(fr.ang) * (POND_R - 0.01), 0.03, 0.09);
+        this.water.disc(0.5 + Math.cos(fr.ang) * (this.pondR - 0.01), 0.5 + Math.sin(fr.ang) * (this.pondR - 0.01), 0.03, 0.09);
         this.audio.blip(0.8, clamp((fr.x - this.cam.x) * 3, -1, 1));
       }
       return;
@@ -2599,7 +3640,7 @@ class Game {
       tg.x = lerp(tg.x0, tg.tx, k); tg.y = lerp(tg.y0, tg.ty, k);
       if (!tg.hit && tg.t >= 0.1 && tg.t < 0.16 && this.state === 'playing') {
         if (Math.hypot(s.x - tg.tx, s.y - tg.ty) < 0.026) {
-          tg.hit = true; s.tension -= 0.4; this.dmg.frog += 0.4; s.hurtT = 1; this.audio.hurt(); this.combo = 0;
+          tg.hit = true; s.tension -= 0.4; this.dmg.frog += 0.4; s.hurtT = 1; this.audio.hurt(); this.combo = 0; this.stats.hits++;
           s.vx += Math.cos(fr.face + Math.PI) * 0.25; s.vy += Math.sin(fr.face + Math.PI) * 0.25;
           this.hint('frog · keep to the open centre', 2.5);
         }
@@ -2608,8 +3649,8 @@ class Game {
     } else if (fr.state === 'hop') {
       if (fr.t <= 0) {
         fr.state = 'away'; fr.t = 8 + this.rng() * 10; fr.visible = false;
-        this.water.disc(0.5 + Math.cos(fr.ang) * (POND_R - 0.02), 0.5 + Math.sin(fr.ang) * (POND_R - 0.02), 0.035, 0.16);
-        this.splashes.push({ x: 0.5 + Math.cos(fr.ang) * (POND_R - 0.02), y: 0.5 + Math.sin(fr.ang) * (POND_R - 0.02), t: 0, dur: 0.45, size: 0.035, seed: 5 });
+        this.water.disc(0.5 + Math.cos(fr.ang) * (this.pondR - 0.02), 0.5 + Math.sin(fr.ang) * (this.pondR - 0.02), 0.035, 0.16);
+        this.splashes.push({ x: 0.5 + Math.cos(fr.ang) * (this.pondR - 0.02), y: 0.5 + Math.sin(fr.ang) * (this.pondR - 0.02), t: 0, dur: 0.45, size: 0.035, seed: 5 });
         this.audio.splashBig();
       }
     }
@@ -2620,7 +3661,7 @@ class Game {
     const s = this.strider;
     while (this.bugs.length < env.bugs) {
       const a = this.rng() * TAU;
-      this.bugs.push({ x: 0.5 + Math.cos(a) * (POND_R - 0.06), y: 0.5 + Math.sin(a) * (POND_R - 0.06), heading: a + Math.PI, size: 0.016, state: 'hunt', t: 0, wake: 0, stun: 0, flee: 0, turnT: 0 });
+      this.bugs.push({ x: 0.5 + Math.cos(a) * (this.pondR - 0.06), y: 0.5 + Math.sin(a) * (this.pondR - 0.06), heading: a + Math.PI, size: 0.016, state: 'hunt', t: 0, wake: 0, stun: 0, flee: 0, turnT: 0 });
       if (!this.teach.bug && this.state === 'playing') { this.teach.bug = true; this.hint('a hunter by vibration · hold still', 3.5); }
     }
     if (env.bugs === 0 && this.bugs.length) { for (const b of this.bugs) b.leaving = true; }
@@ -2630,12 +3671,12 @@ class Game {
         b.stun -= dt; b.heading += dt * 4;
         continue;
       }
-      let speed = 0.11;
+      let speed = 0.1;
       let target = null;
       if (b.leaving) {
         const ang = Math.atan2(b.y - 0.5, b.x - 0.5);
-        target = { x: 0.5 + Math.cos(ang) * (POND_R + 0.1), y: 0.5 + Math.sin(ang) * (POND_R + 0.1) };
-        if (Math.hypot(b.x - 0.5, b.y - 0.5) > POND_R + 0.03) b.dead = true;
+        target = { x: 0.5 + Math.cos(ang) * (this.pondR + 0.1), y: 0.5 + Math.sin(ang) * (this.pondR + 0.1) };
+        if (Math.hypot(b.x - 0.5, b.y - 0.5) > this.pondR + 0.03) b.dead = true;
       } else if (b.flee > 0) {
         b.flee -= dt;
         target = { x: b.x + (b.x - s.x), y: b.y + (b.y - s.y) };
@@ -2656,7 +3697,7 @@ class Game {
         else {
           b.turnT -= dt;
           if (!b.wander || b.turnT <= 0) {
-            const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (POND_R - 0.08);
+            const a = this.rng() * TAU, r = Math.sqrt(this.rng()) * (this.pondR - 0.08);
             b.wander = { x: 0.5 + Math.cos(a) * r, y: 0.5 + Math.sin(a) * r }; b.turnT = 4 + this.rng() * 4;
           }
           target = b.wander; speed = 0.06;
@@ -2667,9 +3708,9 @@ class Game {
         const da = Math.atan2(Math.sin(ang - b.heading), Math.cos(ang - b.heading));
         b.heading += da * Math.min(1, dt * 3.5);
       }
-      b.x += Math.cos(b.heading) * speed * dt; b.y += Math.sin(b.heading) * speed * dt;
+      b.x += (Math.cos(b.heading) * speed + this.driftX) * dt; b.y += (Math.sin(b.heading) * speed + this.driftY) * dt;
       const dd = Math.hypot(b.x - 0.5, b.y - 0.5);
-      if (!b.leaving && dd > POND_R - 0.03) { b.x = 0.5 + (b.x - 0.5) / dd * (POND_R - 0.03); b.y = 0.5 + (b.y - 0.5) / dd * (POND_R - 0.03); b.heading += Math.PI * 0.5; }
+      if (!b.leaving && dd > this.pondR - 0.03) { b.x = 0.5 + (b.x - 0.5) / dd * (this.pondR - 0.03); b.y = 0.5 + (b.y - 0.5) / dd * (this.pondR - 0.03); b.heading += Math.PI * 0.5; }
       // wake: a stream of small impulses → V-shaped pattern emerges from the sim
       b.wake -= dt;
       if (b.wake <= 0 && speed > 0.07) { b.wake = 0.055; this.water.disc(b.x, b.y, 0.008, 0.0045); }
@@ -2680,7 +3721,7 @@ class Game {
         }
         const ds = Math.hypot(s.x - b.x, s.y - b.y);
         if (ds < 0.022 && this.loudness() > 0.15 && this.state === 'playing') {
-          s.tension -= 0.3; this.dmg.bug += 0.3; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 4;
+          s.tension -= 0.25; this.dmg.bug += 0.25; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 6; this.stats.hits++;
           this.hint('backswimmer · stop moving to go silent', 3);
         }
       }
@@ -2752,11 +3793,13 @@ class Game {
     const e = this.env || this.envAt(0);
     v.cam.x = this.cam.x; v.cam.y = this.cam.y; v.cam.scale = this.cam.scale * renderScale;
     v.time = this.wall;
-    const az = -0.9 + 0.3 * Math.sin(this.time * 0.003);
-    const el = lerp(1.3, 1.15, e.dawn);
+    const L = this.world.light;
+    const az = L.az + 0.3 * Math.sin(this.time * 0.003);
+    const el = lerp(L.el, L.el - 0.15, e.dawn);
+    v.world = this.world;
     v.env.sun = [Math.cos(az) * Math.cos(el), Math.sin(az) * Math.cos(el), Math.sin(el)];
     v.env.night = e.night; v.env.storm = e.storm; v.env.dawn = e.dawn;
-    v.env.fog = e.night * 0.6 * (this.state === 'playing' ? 1 : 0.5);
+    v.env.fog = Math.min(0.8, e.night * 0.6 * (this.state === 'playing' ? 1 : 0.5) + (e.fog || 0));
     v.env.glow = 1.0;
     v.env.normalScale = 0.085;
     v.env.caustic = 110;
@@ -2806,15 +3849,17 @@ class Game {
       // strider legs & body
       if (s.visible) {
         const fade = 1 - s.sink * 0.8;
-        const lc = [0.2, 0.15, 0.1];
+        const look = this.skeleton.look;
+        const lc = look.legs;
         for (let i = 0; i < 6; i++) {
           const f = s.feet[i];
-          const rad = 0.0012;
+          const rad = 0.0012 * look.legWidth * look.scale;
           r.capsule(f.hx, f.hy, f.kx, f.ky, rad * 1.1, lc[0], lc[1], lc[2], fade);
           r.capsule(f.kx, f.ky, f.x, f.y, rad, lc[0], lc[1], lc[2], fade);
         }
         const hurt = s.hurtT > 0 ? 0.5 + 0.5 * Math.sin(this.wall * 40) : 0;
-        r.sprite(s.x, s.y, 0.028, s.heading, 6, s.sink, 0, 0, lerp(0.15, 0.55, hurt * 0.35), lerp(0.11, 0.18, hurt * 0.2), 0.08, fade);
+        const bc = look.body;
+        r.sprite(s.x, s.y, 0.028 * look.scale, s.heading, 6, s.sink, 0, 0, lerp(bc[0], 0.55, hurt * 0.35), lerp(bc[1], 0.18, hurt * 0.2), bc[2], fade);
       }
       // frog + tongue
       const fr = this.frog;
@@ -2831,9 +3876,38 @@ class Game {
         const k = sp.t / sp.dur;
         r.sprite(sp.x, sp.y, sp.size * (0.5 + 0.9 * k), 0, 7, lerp(0.3, 0.95, k), 1 - k, sp.seed, 0.95, 0.97, 1.0, 0.8);
       }
+      // hail in the air
+      for (const d of this.drops) {
+        if (d.kind !== 'hail') continue;
+        const k = d.t / d.fall;
+        r.sprite(d.x + 0.02 * (1 - k), d.y + 0.03 * (1 - k), 0.0045 * (0.5 + 0.5 * k), 0, 12, 0, 0, 0, 0.9, 0.95, 1.0, 0.3 + 0.6 * k);
+      }
+      // car shadow sweeping the road edge
+      if (this.car) {
+        const c = this.car;
+        r.sprite(c.x, c.y, 0.11, 0, 4, 0.3, 0, 0, 0.02, 0.02, 0.03, 0.5);
+        r.sprite(c.x - c.side * 0.06, c.y - 0.012, 0.03, 0, 0, 0.3, 0, 0, 0.02, 0.02, 0.03, 0.35);
+      }
+      // overflow spout
+      if (this.spout) {
+        const sp = this.spout;
+        r.capsule(sp.x - 0.03, sp.y + 0.05, sp.x + 0.03, sp.y + 0.05, 0.016, 0.12, 0.12, 0.13, 1);
+      }
+      // storm drain grate
+      if (this.drain) {
+        const d = this.drain;
+        r.sprite(d.x, d.y, 0.034, 0, 0, 0.55, 0, 0, 0.05, 0.05, 0.05, 0.85);
+        for (let k = 0; k < 3; k++) r.capsule(d.x - 0.02, d.y - 0.012 + k * 0.012, d.x + 0.02, d.y - 0.012 + k * 0.012, 0.0022, 0.25, 0.25, 0.26, 0.9);
+      }
+      // egret shadow (a moonlit silhouette at night)
+      if (this.egret.state !== 'away') {
+        const e = this.egret;
+        const nt = (this.env || {}).night || 0;
+        r.sprite(e.x, e.y, e.size, e.heading, 11, e.flap, 0.08, 0, lerp(0.02, 0.62, nt), lerp(0.03, 0.66, nt), lerp(0.04, 0.72, nt), e.alpha * (1 - 0.3 * nt));
+      }
       // HUD arcs around the strider
       if (this.state === 'playing' || this.state === 'sinking') {
-        const R = 0.058;
+        const R = 0.058 * (0.7 + 0.3 * this.skeleton.look.scale * this.skeleton.look.legLen);
         const tf = s.tension;
         const ta = 0.25 + 0.65 * (1 - tf) + (s.hurtT > 0 ? 0.3 : 0);
         const tc = tf > 0.5 ? [lerp(1, 1, 0), lerp(0.75, 1, (tf - 0.5) * 2), lerp(0.3, 1, (tf - 0.5) * 2)] : [1, lerp(0.2, 0.75, tf * 2), lerp(0.1, 0.3, tf * 2)];
@@ -2861,8 +3935,9 @@ class Game {
         const rr = 0.68 + 0.14 * pv;
         const base = 0.16 + 0.12 * Math.abs(pv) + 0.6 * this.ready * (sign < 0 ? 1 : 0.3);
         const cool = s.pulseCool > 0 ? 0.35 : 1;
-        r.sprite(s.x, s.y, 0.07, 0, 1, rr, 0.03 + 0.03 * this.ready, 0.08, col[0], col[1], col[2], base * cool);
-        if (this.ready > 0.3 && sign < 0) r.sprite(s.x, s.y, 0.07 * rr, this.wall * 2, 8, 0, 0, 0, 0.5, 0.8, 1, 0.25 * this.ready * (0.6 + 0.4 * Math.sin(this.wall * 12)));
+        const PR = 0.07 * (0.7 + 0.3 * this.skeleton.look.scale * this.skeleton.look.legLen);
+        r.sprite(s.x, s.y, PR, 0, 1, rr, 0.03 + 0.03 * this.ready, 0.08, col[0], col[1], col[2], base * cool);
+        if (this.ready > 0.3 && sign < 0) r.sprite(s.x, s.y, PR * rr, this.wall * 2, 8, 0, 0, 0, 0.5, 0.8, 1, 0.25 * this.ready * (0.6 + 0.4 * Math.sin(this.wall * 12)));
         // sense radius hint at night: faint halos on prey you can feel
         if (night > 0.3) {
           for (const g of this.gnats) {
@@ -2896,6 +3971,26 @@ class Game {
       }
       // ghost marker glow
       if (this.ghostPos) r.sprite(this.ghostPos.x, this.ghostPos.y, 0.012, 0, 0, 0.0, 0, 0, 0.4, 0.8, 1.0, 0.2);
+      if (this.spout) { const sp = this.spout; r.capsule(sp.x, sp.y + 0.045, sp.x + Math.sin(this.wall * 7) * 0.004, sp.y - 0.015, 0.006, 0.6, 0.7, 0.8, 0.35 + 0.1 * Math.sin(this.wall * 13)); }
+      if (this.drain) {
+        const d = this.drain;
+        if (d.active) { for (let k = 0; k < 3; k++) { const ph = (this.wall * 1.6 + k / 3) % 1; r.sprite(d.x, d.y, 0.035 + 0.12 * (1 - ph), 0, 1, 0.85, 0.03, 0.1, 0.5, 0.75, 0.9, 0.35 * ph); } }
+        else if (d.warn > 0) r.sprite(d.x, d.y, 0.05, 0, 1, 0.8, 0.04, 0.1, 1, 0.6, 0.4, 0.4 * d.warn * (0.5 + 0.5 * Math.sin(this.wall * 16)));
+      }
+      if (this.egret.state === 'glide' && this.egret.locked) { const e = this.egret; r.sprite(e.tx, e.ty, 0.05, 0, 1, 0.8, 0.03, 0.1, 1, 0.5, 0.4, 0.3 + 0.2 * Math.sin(this.wall * 18)); }
+      // crossing lights: the next one glows, the rest wait faintly
+      let nextSeen = false;
+      for (const m of this.markers) {
+        if (m.done) continue;
+        if (!nextSeen) {
+          nextSeen = true;
+          const pulse = 0.5 + 0.5 * Math.sin(this.wall * 4 + m.t);
+          r.sprite(m.x, m.y, 0.045, 0, 1, 0.55 + 0.2 * pulse, 0.05, 0.14, 0.5, 1, 0.85, 0.45 + 0.35 * pulse);
+          r.sprite(m.x, m.y, 0.02, this.wall * 2, 8, 0, 0, 0, 0.6, 1, 0.9, 0.7);
+        } else {
+          r.sprite(m.x, m.y, 0.014, 0, 0, 0.0, 0, 0, 0.5, 1, 0.85, 0.12);
+        }
+      }
     }
   }
 
@@ -2909,6 +4004,9 @@ class Game {
 
 
 // ---- src/main.js ----
+
+
+
 
 
 
@@ -2952,6 +4050,7 @@ const renderer = new Renderer(gl, caps);
 const input = new Input(canvas);
 const audio = new AudioEngine();
 const game = new Game(water, audio);
+game.onWorld = (world) => renderer.setWorld(world);
 
 function applyTier() {
   const t = TIERS[tier];
@@ -2980,6 +4079,126 @@ const ui = {
   title: $('title'), end: $('end'), pause: $('pause'), hud: $('hud'), hint: $('hint'), popups: $('popups'),
   phase: $('phase'), time: $('time'), score: $('score'), best: $('best'), dailyInfo: $('daily-info'), molts: $('molts'),
 };
+const SCREENS = ['title', 'end', 'pause', 'ponds', 'levels', 'intro', 'levelend'];
+function show(name) {
+  for (const s of SCREENS) $(s).hidden = s !== name;
+  ui.hud.classList.toggle('dim', !!name);
+}
+let current = { w: 0, i: 0, recipe: null };
+function showPonds() {
+  show('ponds');
+  $('ponds-stars').textContent = `★ ${game.totalStars()}`;
+  const list = $('world-list');
+  list.innerHTML = '';
+  WORLDS.forEach((w, wi) => {
+    const unlocked = game.isWorldUnlocked(wi);
+    const el = document.createElement('button');
+    el.className = 'world' + (unlocked ? '' : ' locked');
+    el.disabled = !unlocked;
+    el.innerHTML = `<b>${w.name}</b><span>${w.tagline}</span><i>${unlocked ? `★ ${game.worldStars(wi)} / ${w.levels * 3}` : `★ ${w.starsToUnlock} to open`}</i>`;
+    el.onclick = () => showLevels(wi);
+    list.appendChild(el);
+  });
+  const season = document.createElement('button');
+  const sOpen = game.isWorldUnlocked(WORLDS.length);
+  season.className = 'world' + (sOpen ? '' : ' locked');
+  season.disabled = !sOpen;
+  season.innerHTML = `<b>Storm Season</b><span>endless generated storms, each harder</span><i>${sOpen ? `level ${game.save.campaign.season + 1}` : 'clear the Tarn'}</i>`;
+  season.onclick = () => showIntro(WORLDS.length, game.save.campaign.season);
+  list.appendChild(season);
+}
+function showLevels(wi) {
+  current.w = wi;
+  show('levels');
+  const w = WORLDS[wi];
+  $('levels-title').textContent = w.name;
+  $('levels-sub').textContent = w.tagline;
+  $('levels-stars').textContent = `★ ${game.worldStars(wi)} / ${w.levels * 3}`;
+  const grid = $('level-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < w.levels; i++) {
+    const st = game.levelStars(wi, i);
+    const unlocked = game.isLevelUnlocked(wi, i);
+    const b = document.createElement('button');
+    b.className = 'tile' + (unlocked ? '' : ' locked') + (i === w.levels - 1 ? ' boss' : '');
+    b.disabled = !unlocked;
+    b.innerHTML = `<b>${i + 1}</b><i>${'★'.repeat(st)}${'☆'.repeat(3 - st)}</i>`;
+    b.onclick = () => showIntro(wi, i);
+    grid.appendChild(b);
+  }
+}
+function showIntro(wi, i) {
+  const r = makeLevel(wi, i);
+  current = { w: wi, i, recipe: r };
+  show('intro');
+  const wname = r.season ? 'Storm Season' : WORLDS[wi].name;
+  $('intro-world').textContent = `${wname} · ${i + 1}${r.boss ? ' · boss' : ''}`;
+  $('intro-title').textContent = r.name;
+  $('intro-goal').textContent = `${goalText(r.goal)} · ${fmtTime(r.duration)}`;
+  const earned = game.levelStars(wi, i);
+  const list = [r.goal.type === 'survive' ? 'survive' : goalText(r.goal), ...r.stars.map(starText)];
+  $('intro-stars').innerHTML = list.map((t, k) => `<li class="${k < earned ? 'lit' : ''}">${t}</li>`).join('');
+  $('intro-mod').textContent = r.modifiers.map((m) => `${MODIFIERS[m].name} · ${MODIFIERS[m].desc}`).join('   ');
+  buildSkeletonRow();
+}
+function buildSkeletonRow() {
+  const row = $('skel-row');
+  row.innerHTML = '';
+  const sel = game.selectedSkeleton();
+  const stars = game.totalStars();
+  for (const sk of SKELETONS) {
+    const unlocked = stars >= sk.unlock;
+    const b = document.createElement('button');
+    b.className = 'skel' + (sk === sel ? ' picked' : '') + (unlocked ? '' : ' locked');
+    b.disabled = !unlocked;
+    b.title = unlocked ? `${sk.sci} · ${statLine(sk)}` : `★ ${sk.unlock} to unlock`;
+    b.innerHTML = `<b>${sk.name}</b><i>${unlocked ? '×' + sk.mult.toFixed(1) : '★ ' + sk.unlock}</i>`;
+    b.onclick = () => { game.selectSkeleton(sk.key); buildSkeletonRow(); };
+    row.appendChild(b);
+  }
+  $('skel-info').textContent = `${sel.name} · ${sel.desc} · ${statLine(sel)}`;
+}
+function startLevel(wi, i) {
+  audio.init();
+  if (audio.master) audio.master.gain.value = soundOn ? 0.8 : 0;
+  show(null);
+  game.startLevel(wi, i);
+}
+$('btn-ponds').onclick = showPonds;
+$('ponds-back').onclick = () => showTitle();
+$('levels-back').onclick = () => showPonds();
+$('btn-intro-back').onclick = () => (current.w >= WORLDS.length ? showPonds() : showLevels(current.w));
+$('btn-skate').onclick = () => startLevel(current.w, current.i);
+$('btn-retry').onclick = () => startLevel(current.w, current.i);
+$('btn-next').onclick = () => {
+  const w = current.w, i = current.i + 1;
+  if (w >= WORLDS.length) startLevel(w, game.save.campaign.season);
+  else if (i < WORLDS[w].levels) startLevel(w, i);
+  else showPonds();
+};
+$('btn-le-ponds').onclick = () => { game.toTitle(); showPonds(); };
+
+function buildMolt(boxId, titleId) {
+  const choices = game.moltChoices();
+  const box = $(boxId), title = $(titleId);
+  box.innerHTML = '';
+  title.hidden = false;
+  if (!choices.length) { title.textContent = 'Fully molted'; return; }
+  title.textContent = 'Molt · choose one';
+  for (const k of choices) {
+    const u = UPGRADES[k];
+    const lvl = game.save.molts[k];
+    const el = document.createElement('button');
+    el.className = 'card';
+    el.innerHTML = `<b>${u.name}</b><span>${u.desc}</span><i>${'●'.repeat(lvl)}${'○'.repeat(u.max - lvl)}</i>`;
+    el.onclick = () => {
+      game.applyMolt(k);
+      for (const c of box.children) { c.disabled = true; c.classList.toggle('picked', c === el); }
+      title.textContent = 'Molted · ' + u.name;
+    };
+    box.appendChild(el);
+  }
+}
 let paused = false;
 let soundOn = true;
 try { soundOn = localStorage.getItem('glasswater.sound') !== 'off'; } catch (_) { /* ignore */ }
@@ -2991,7 +4210,8 @@ function moltSummary() {
   return parts.length ? parts.join('  ') : 'no molts yet';
 }
 function showTitle() {
-  ui.title.hidden = false; ui.end.hidden = true; ui.pause.hidden = true; ui.hud.classList.add('dim');
+  show('title');
+  $('ponds-info').textContent = game.totalStars() ? `★ ${game.totalStars()} · ${WORLDS.filter((w, i) => game.isWorldUnlocked(i)).length} of ${WORLDS.length} ponds open` : 'six ponds · 150 levels · then the Storm Season';
   ui.best.textContent = game.save.best ? `best ${game.save.best}` : '';
   const d = game.save.daily;
   ui.dailyInfo.textContent = dailyKey() + (d && d.key === dailyKey() ? ` · your best ${d.best}` : '');
@@ -3002,7 +4222,7 @@ function showTitle() {
 function start(mode) {
   audio.init();
   audio.master && (audio.master.gain.value = soundOn ? 0.8 : 0);
-  ui.title.hidden = true; ui.end.hidden = true; ui.hud.classList.remove('dim');
+  show(null);
   game.startRun(mode);
 }
 $('btn-daily').onclick = () => start('daily');
@@ -3023,7 +4243,7 @@ $('snd').onclick = () => {
   $('snd').textContent = soundOn ? 'sound on' : 'sound off';
 };
 $('btn-resume').onclick = () => setPaused(false);
-$('btn-quit').onclick = () => { setPaused(false); game.toTitle(); showTitle(); };
+$('btn-quit').onclick = () => { setPaused(false); const wasLevel = !!game.level; game.toTitle(); if (wasLevel) showPonds(); else showTitle(); };
 $('btn-again').onclick = () => start(game.mode);
 $('btn-endless').onclick = () => { ui.end.hidden = true; ui.hud.classList.remove('dim'); game.continueEndless(); };
 $('btn-title').onclick = () => { game.toTitle(); showTitle(); };
@@ -3040,11 +4260,33 @@ window.addEventListener('keydown', (e) => {
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.state === 'playing') setPaused(true); });
 canvas.addEventListener('pointerdown', () => audio.init(), { once: true });
 
+const CAUSES = { wave: 'A wave tipped you.', slick: 'The slick let go of you.', hunger: 'You starved.', weight: 'Too heavy for the skin.', fish: 'The god below took you.', frog: 'The frog.', bug: 'A backswimmer found you.', egret: 'The egret.', drain: 'The drain took you.' };
+function onLevelEnd(res) {
+  show('levelend');
+  const r = res.recipe;
+  $('le-world').textContent = `${r.season ? 'Storm Season' : WORLDS[res.w].name} · ${res.i + 1} · ${r.name}`;
+  $('le-title').textContent = res.cleared ? (r.boss ? 'Boss cleared.' : 'Cleared.') : (res.reason === 'timeout' ? 'The storm passed first.' : 'You sank.');
+  $('le-sub').textContent = res.cleared
+    ? (res.nStars === 3 ? 'All three stars.' : `${res.nStars} star${res.nStars === 1 ? '' : 's'}.`) + (res.nStars > res.prevStars ? ` ★ ${res.totalStars} in all.` : '')
+    : (res.reason === 'timeout' ? `${goalText(r.goal)} · not this time.` : (CAUSES[res.cause] || ''));
+  const starEls = $('le-stars').children;
+  for (let k = 0; k < 3; k++) starEls[k].classList.toggle('on', !!res.stars[k]);
+  $('le-score').textContent = res.score;
+  const st = res.stats;
+  $('le-stats').innerHTML = [['time', fmtTime(res.time)], ['eaten', st.gnats], ['cancels', st.cancels], ['perfect', st.perfect], ['best combo', st.bestCombo]]
+    .map(([k, v]) => `<span><b>${v}</b>${k}</span>`).join('');
+  $('le-molt').innerHTML = '';
+  $('le-molt-title').hidden = true;
+  if (res.moltOffered) buildMolt('le-molt', 'le-molt-title');
+  const hasNext = res.cleared && (r.season || res.i + 1 < WORLDS[res.w].levels);
+  $('btn-next').hidden = !hasNext;
+  $('btn-next').textContent = r.season ? 'Next storm' : 'Next';
+}
 game.onEnd = (res) => {
-  ui.hud.classList.add('dim');
-  ui.end.hidden = false;
+  if (res.kind === 'level') { onLevelEnd(res); return; }
+  show('end');
   $('end-title').textContent = res.reason === 'survived' ? (game.endless ? 'The storm took you.' : 'Sunrise.') : 'You sank.';
-  const causes = { wave: 'A wave tipped you.', slick: 'The slick let go of you.', hunger: 'You starved.', weight: 'Too heavy for the skin.', fish: 'The god below took you.', frog: 'The frog.', bug: 'A backswimmer found you.' };
+  const causes = CAUSES;
   $('end-sub').textContent = res.reason === 'survived' && !game.endless
     ? 'The camera pulls back. It was a puddle all along.'
     : `${causes[res.cause] || ''} You lasted ${fmtTime(res.time)}.`.trim();
@@ -3056,28 +4298,7 @@ game.onEnd = (res) => {
   ].map(([k, v]) => `<span><b>${v}</b>${k}</span>`).join('');
   $('end-best').textContent = res.newBest ? 'new best' : (res.newDaily ? 'new daily best' : '');
   $('btn-endless').hidden = !res.endlessOffered;
-  // molt
-  const choices = game.moltChoices();
-  const box = $('molt');
-  box.innerHTML = '';
-  if (choices.length) {
-    $('molt-title').textContent = 'Molt · choose one';
-    for (const k of choices) {
-      const u = UPGRADES[k];
-      const lvl = game.save.molts[k];
-      const el = document.createElement('button');
-      el.className = 'card';
-      el.innerHTML = `<b>${u.name}</b><span>${u.desc}</span><i>${'●'.repeat(lvl)}${'○'.repeat(u.max - lvl)}</i>`;
-      el.onclick = () => {
-        game.applyMolt(k);
-        for (const c of box.children) { c.disabled = true; c.classList.toggle('picked', c === el); }
-        $('molt-title').textContent = 'Molted · ' + u.name;
-      };
-      box.appendChild(el);
-    }
-  } else {
-    $('molt-title').textContent = 'Fully molted';
-  }
+  buildMolt('molt', 'molt-title');
 };
 
 // popup pool
@@ -3111,8 +4332,18 @@ function updateDom(dt) {
   drawPopups();
   if (domT < 0.1) return;
   domT = 0;
-  ui.phase.textContent = game.hud.phase;
-  ui.time.textContent = fmtTime(game.hud.time);
+  if (game.level) {
+    ui.phase.textContent = game.hud.levelLabel;
+    ui.time.textContent = fmtTime(Math.ceil(game.hud.remaining));
+    $('goal').textContent = game.hud.goal;
+    const st = game.hud.stars;
+    if (st) $('hstars').innerHTML = st.map((on) => `<span class="${on ? 'on' : ''}">★</span>`).join('');
+  } else {
+    ui.phase.textContent = game.hud.phase;
+    ui.time.textContent = fmtTime(game.hud.time);
+    $('goal').textContent = '';
+    $('hstars').innerHTML = '';
+  }
   ui.score.textContent = game.hud.score;
   if (game.hud.hint !== ui.hint.textContent) ui.hint.textContent = game.hud.hint;
   ui.hint.style.opacity = game.hud.hintT > 0 ? Math.min(1, game.hud.hintT) : 0;
@@ -3192,6 +4423,8 @@ window.__gw = {
   },
   pulse() { game.pulse(); },
   jump(t) { game.time = t; },
+  startLevel(w, i) { show(null); game.startLevel(w, i); },
+  show, showPonds, showLevels, showIntro,
 };
 if (params.get('autostart')) {
   setTimeout(() => { soundOn = false; start(params.get('mode') || 'daily'); if (params.get('t')) game.time = +params.get('t'); }, 50);

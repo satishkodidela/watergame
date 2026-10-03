@@ -5,11 +5,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const order = ['gl', 'rng', 'shaders', 'water', 'renderer', 'input', 'audio', 'game', 'main'];
+const order = ['gl', 'rng', 'worlds', 'levels', 'skeletons', 'shaders', 'water', 'renderer', 'input', 'audio', 'game', 'main'];
 let js = '';
 for (const name of order) {
   let src = fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8');
   src = src.replace(/^import\s[^;]*;\s*$/gm, '');          // drop imports (all local)
+  src = src.replace(/^export\s*\{[^}]*\};?\s*$/gm, '');      // drop re-exports
   src = src.replace(/^export\s+(?=(const|let|class|function)\b)/gm, '');
   if (/^(import|export)\b/m.test(src)) throw new Error(`unhandled import/export in ${name}.js`);
   js += `\n// ---- src/${name}.js ----\n${src}\n`;

@@ -28,7 +28,7 @@ export const WORLDS = [
   {
     key: 'barrel', name: 'Rain Barrel', tagline: 'hard walls, every wave comes back', levels: 25, starsToUnlock: 70,
     pondR: 0.40, edge: 'wall', night: 0, dawn: 0, drift: [0, 0],
-    rainBase: 0.15, rainSlope: 1.0, windBase: 0.05, dropSize: 0.85, baseD: 0.8, slopeD: 1.5,
+    rainBase: 0.15, rainSlope: 0.75, windBase: 0.05, dropSize: 0.85, baseD: 0.8, slopeD: 1.5,
     roster: { fish: 0, frog: 0, bugs: 0, slicks: 0, hail: 0, cars: 0, egret: 0, overflow: 1 },
     bed: { sandA: [0.10, 0.12, 0.15], sandB: [0.18, 0.20, 0.24], density: 0.0, tint: [1, 1, 1], moss: 0.25, mossColor: [0.18, 0.24, 0.16], scale: 1.0, rust: 1 },
     water: { tint: [0.35, 0.50, 0.66], deep: [0.03, 0.06, 0.12], murk: 0.7, depth: 0.08 },
@@ -38,8 +38,8 @@ export const WORLDS = [
   },
   {
     key: 'ditch', name: 'Roadside Ditch', tagline: 'oil, grit and passing cars', levels: 25, starsToUnlock: 115,
-    pondR: 0.46, edge: 'sponge', night: 0, dawn: 0, drift: [0.018, 0.004],
-    rainBase: 0.3, rainSlope: 1.3, windBase: 0.4, dropSize: 0.85, baseD: 1.0, slopeD: 1.5,
+    pondR: 0.46, edge: 'sponge', night: 0, dawn: 0, drift: [0.012, 0.003],
+    rainBase: 0.3, rainSlope: 1.0, windBase: 0.4, dropSize: 0.85, baseD: 1.0, slopeD: 1.5,
     roster: { fish: 0, frog: 0, bugs: 1, slicks: 0.06, hail: 0, cars: 1, egret: 0 },
     bed: { sandA: [0.30, 0.26, 0.20], sandB: [0.46, 0.40, 0.30], density: 0.8, tint: [0.9, 0.85, 0.75], moss: 0.3, mossColor: [0.26, 0.30, 0.14], scale: 1.2 },
     water: { tint: [0.52, 0.50, 0.38], deep: [0.12, 0.10, 0.05], murk: 0.75, depth: 0.09 },

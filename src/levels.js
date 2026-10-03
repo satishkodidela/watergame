@@ -5,14 +5,14 @@
 import { mulberry32 } from './rng.js';
 import { WORLDS } from './worlds.js';
 
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const lerp = (a, b, t) => a + (b - a) * t;
+const clampL = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerpL = (a, b, t) => a + (b - a) * t;
 export function kf(t, pts) {
   if (t <= pts[0][0]) return pts[0][1];
   for (let i = 1; i < pts.length; i++) {
     if (t <= pts[i][0]) {
       const [t0, v0] = pts[i - 1], [t1, v1] = pts[i];
-      return lerp(v0, v1, (t - t0) / (t1 - t0));
+      return lerpL(v0, v1, (t - t0) / (t1 - t0));
     }
   }
   return pts[pts.length - 1][1];
@@ -156,8 +156,8 @@ const OPENERS = {
 const BOSSES = {
   puddle: { name: 'The First Downpour', template: 'survive', duration: 90, rainPeak: 2.6, dropSize: 0.88, hint: 'chain cancels · carve a calm patch' },
   garden: { name: 'The Koi', template: 'hunt', goal: { type: 'scare', n: 3 }, duration: 110, rainPeak: 1.2, fish: 1.6, boss: 'koi' },
-  barrel: { name: 'The Overflow', template: 'survive', duration: 95, rainPeak: 1.6, boss: 'overflow' },
-  ditch: { name: 'The Storm Drain', template: 'survive', duration: 95, rainPeak: 1.8, boss: 'drain' },
+  barrel: { name: 'The Overflow', template: 'survive', duration: 95, rainPeak: 1.2, boss: 'overflow' },
+  ditch: { name: 'The Storm Drain', template: 'survive', duration: 95, rainPeak: 1.4, boss: 'drain' },
   paddy: { name: 'The Egret', template: 'survive', duration: 100, rainPeak: 1.0, boss: 'egret', egret: 1.5 },
   tarn: { name: 'The Hailstorm', template: 'survive', duration: 100, rainPeak: 1.0, boss: 'hail', hail: 2 },
 };
@@ -199,7 +199,7 @@ export function makeLevel(w, i) {
   }
 
   // duration & weather
-  const duration = auth.duration || clamp(Math.round(template === 'survive' ? 60 + 28 * p : 72 + 24 * p), 55, 110);
+  const duration = auth.duration || clampL(Math.round(template === 'survive' ? 60 + 28 * p : 72 + 24 * p), 55, 110);
   const rainPeak = auth.rainPeak ?? (world.rainBase + D * world.rainSlope * T.rainK);
   const wind = world.windBase + D * 0.22;
   const modifiers = [];
@@ -216,7 +216,7 @@ export function makeLevel(w, i) {
     seed: hashSeed(w, i) ^ 0x5bd1e995,
     weather: {
       rainPeak, wind, night,
-      storm: night ? 0 : clamp(rainPeak / 3.2, 0, 1),
+      storm: night ? 0 : clampL(rainPeak / 3.2, 0, 1),
       dawn: world.dawn * (1 - p * 0.6),
     },
     roster: {
@@ -224,7 +224,7 @@ export function makeLevel(w, i) {
       slickRate: world.roster.slicks * (0.6 + D * 0.4),
       fish: auth.fish ?? (world.roster.fish ? Math.min(1.4, world.roster.fish * (0.4 + D * 0.4)) : (D > 1.4 && rng() < 0.3 ? 0.6 : 0)),
       frog: world.roster.frog && D > 0.9 ? 1 : 0,
-      bugs: auth.bugs ?? (world.roster.bugs ? Math.min(2, Math.max(1, Math.round(world.roster.bugs * (0.5 + D * 0.3)))) : 0),
+      bugs: auth.bugs ?? (world.roster.bugs ? (D < 1.9 ? 1 : 2) : 0),
       dropSize: auth.dropSize ?? (world.dropSize + D * 0.07),
       aimed: auth.aimed ?? (template === 'glass' ? 0.22 : 0),
       hail: auth.hail ?? world.roster.hail * (0.5 + D * 0.3),

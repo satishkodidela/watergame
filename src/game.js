@@ -873,7 +873,7 @@ export class Game {
     if (c.t >= c.nextDrop && c.drops > 0) {
       c.nextDrop += 0.07; c.drops--;
       const x = c.x + (this.rng() - 0.5) * 0.05, y = c.y - 0.1 - this.rng() * 0.14;
-      if (Math.hypot(x - 0.5, y - 0.5) < this.pondR - 0.02) this._spawnDrop(x, y, 1.35, 0.55, 'car');
+      if (Math.hypot(x - 0.5, y - 0.5) < this.pondR - 0.02) this._spawnDrop(x, y, 1.15, 0.55, 'car');
     }
     if (c.t > c.dur) this.car = null;
   }
@@ -897,12 +897,12 @@ export class Game {
   _updateSpout(dt) {
     const sp = this.spout;
     if (!sp || this.state !== 'playing') return;
-    sp.acc += dt * 2.6;
+    sp.acc += dt * 1.8;
     while (sp.acc >= 1) { sp.acc -= 1; this._spawnDrop(sp.x + (this.rng() - 0.5) * 0.03, sp.y - 0.02 - this.rng() * 0.03, 0.8, 0.45, 'spout'); }
     sp.surgeT -= dt;
     if (sp.surgeT <= 0) {
       sp.surgeT = 11 + this.rng() * 5;
-      for (let i = 0; i < 10; i++) this._spawnDrop(sp.x + (this.rng() - 0.5) * 0.08, sp.y - 0.02 - this.rng() * 0.08, 1.1, 0.4 + i * 0.05, 'spout');
+      for (let i = 0; i < 7; i++) this._spawnDrop(sp.x + (this.rng() - 0.5) * 0.08, sp.y - 0.02 - this.rng() * 0.08, 1.0, 0.4 + i * 0.06, 'spout');
       this.audio.rumble(1.0);
       this.hint('surge', 1.2);
     }
@@ -919,11 +919,11 @@ export class Game {
     d.warn = phase < 0 ? 0 : (phase > 11.5 ? (phase - 11.5) / 1.5 : 0);
     if (d.active && !wasActive) { this.audio.rumble(1.5); this.hint('the drain pulls', 1.5); }
     if (!d.active) return;
-    this.water.disc(d.x, d.y, 0.03, -0.012);
+    this.water.disc(d.x, d.y, 0.03, -0.0012);
     const pull = (x, y, k) => { const dx = d.x - x, dy = d.y - y, dist = Math.hypot(dx, dy) + 1e-4; const f = k / Math.max(dist, 0.1); return [dx / dist * f, dy / dist * f]; };
     const s = this.strider;
     if (this.state === 'playing') {
-      const [px, py] = pull(s.x, s.y, 0.2);
+      const [px, py] = pull(s.x, s.y, 0.16);
       s.vx += px * dt * 3; s.vy += py * dt * 3;
       if (Math.hypot(s.x - d.x, s.y - d.y) < 0.035) { s.tension -= dt * 1.2; this.dmg.drain += dt * 1.2; if (s.hurtT <= 0) { s.hurtT = 0.4; this.audio.hurt(); this.stats.hits++; } }
     }
@@ -1198,7 +1198,7 @@ export class Game {
         b.stun -= dt; b.heading += dt * 4;
         continue;
       }
-      let speed = 0.11;
+      let speed = 0.1;
       let target = null;
       if (b.leaving) {
         const ang = Math.atan2(b.y - 0.5, b.x - 0.5);
@@ -1248,7 +1248,7 @@ export class Game {
         }
         const ds = Math.hypot(s.x - b.x, s.y - b.y);
         if (ds < 0.022 && this.loudness() > 0.15 && this.state === 'playing') {
-          s.tension -= 0.3; this.dmg.bug += 0.3; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 4; this.stats.hits++;
+          s.tension -= 0.25; this.dmg.bug += 0.25; s.hurtT = 1; this.audio.hurt(); this.combo = 0; b.flee = 6; this.stats.hits++;
           this.hint('backswimmer · stop moving to go silent', 3);
         }
       }
