@@ -7,6 +7,7 @@ import { Game, UPGRADES } from './game.js';
 import { dailyKey } from './rng.js';
 import { WORLDS } from './worlds.js';
 import { makeLevel, goalText, starText, MODIFIERS } from './levels.js';
+import { SKELETONS, statLine } from './skeletons.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('c');
@@ -133,6 +134,24 @@ function showIntro(wi, i) {
   const list = [r.goal.type === 'survive' ? 'survive' : goalText(r.goal), ...r.stars.map(starText)];
   $('intro-stars').innerHTML = list.map((t, k) => `<li class="${k < earned ? 'lit' : ''}">${t}</li>`).join('');
   $('intro-mod').textContent = r.modifiers.map((m) => `${MODIFIERS[m].name} · ${MODIFIERS[m].desc}`).join('   ');
+  buildSkeletonRow();
+}
+function buildSkeletonRow() {
+  const row = $('skel-row');
+  row.innerHTML = '';
+  const sel = game.selectedSkeleton();
+  const stars = game.totalStars();
+  for (const sk of SKELETONS) {
+    const unlocked = stars >= sk.unlock;
+    const b = document.createElement('button');
+    b.className = 'skel' + (sk === sel ? ' picked' : '') + (unlocked ? '' : ' locked');
+    b.disabled = !unlocked;
+    b.title = unlocked ? `${sk.sci} · ${statLine(sk)}` : `★ ${sk.unlock} to unlock`;
+    b.innerHTML = `<b>${sk.name}</b><i>${unlocked ? '×' + sk.mult.toFixed(1) : '★ ' + sk.unlock}</i>`;
+    b.onclick = () => { game.selectSkeleton(sk.key); buildSkeletonRow(); };
+    row.appendChild(b);
+  }
+  $('skel-info').textContent = `${sel.name} · ${sel.desc} · ${statLine(sel)}`;
 }
 function startLevel(wi, i) {
   audio.init();

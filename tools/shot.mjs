@@ -144,6 +144,15 @@ if (scenes.includes('mech')) {
   await page.waitForTimeout(1500); await shot('45-pad-closeup');
   await run(() => { window.__gw.game.debugZoom = 0; });
 }
+if (scenes.includes('skel')) {
+  const keys = ['common', 'skater', 'broadfoot', 'giant', 'seaskater', 'nymph'];
+  for (const k of keys) {
+    await run((k) => { const g = window.__gw.game; g.save.campaign.stars = { x: 300 }; g.save.campaign.skeleton = k; window.__gw.show(null); window.__gw.startLevel(0, 3); g.god = true; g.debugZoom = 3; window.__gw.press('d'); window.__gw.advance(1.5); window.__gw.press('d', false); window.__gw.advance(0.4); g.cam.scale *= 3; }, k);
+    await page.waitForTimeout(1200); await shot('50-skel-' + k);
+  }
+  await run(() => { const g = window.__gw.game; g.debugZoom = 0; g.save.campaign.stars = {}; g.save.campaign.skeleton = 'common'; window.__gw.showIntro(0, 3); });
+  await page.waitForTimeout(300); await shot('51-intro-skeletons');
+}
 if (scenes.includes('calib')) {
   const list = (process.env.LEVELS || '0:0,0:1,0:2,0:4,0:6,0:9,0:14,0:19,0:24').split(',').map((s) => s.split(':').map(Number));
   const out = [];

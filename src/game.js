@@ -1,6 +1,8 @@
 import { mulberry32, dailySeed, dailyKey } from './rng.js';
 import { WORLDS, CLASSIC_WORLD } from './worlds.js';
 import { classicEnv, makeLevel, LevelScript, STARS, goalProgress, levelId, RUN_END } from './levels.js';
+import { SKELETONS, SKELETON_BY_KEY } from './skeletons.js';
+export { SKELETONS };
 
 export const UPGRADES = {
   legs:      { name: 'Longer legs',      desc: 'Skate faster',                         max: 3 },
@@ -45,6 +47,7 @@ export class Game {
     this.level = null;
     this.markers = [];
     this.skeletonMult = 1;
+    this.skeleton = SKELETONS[0];
     this.onEnd = null;
     this.inputDir = { x: 0, y: 0 };
     this.cssW = 1; this.cssH = 1;
@@ -142,6 +145,27 @@ export class Game {
     if (this.onWorld) this.onWorld(world);
   }
 
+  // ---- skeletons -----------------------------------------------------------
+  selectedSkeleton() {
+    const sk = SKELETON_BY_KEY[this.save.campaign.skeleton] || SKELETONS[0];
+    return this.isSkeletonUnlocked(sk) ? sk : SKELETONS[0];
+  }
+  isSkeletonUnlocked(sk) { return this.totalStars() >= sk.unlock; }
+  selectSkeleton(key) {
+    const sk = SKELETON_BY_KEY[key];
+    if (!sk || !this.isSkeletonUnlocked(sk)) return false;
+    this.save.campaign.skeleton = key;
+    this._store();
+    return true;
+  }
+  _applySkeleton(sk) {
+    this.skeleton = sk;
+    this.skeletonMult = sk.mult;
+    const s = this.strider;
+    const sc = sk.look.scale;
+    s.halfLen = 0.02 * sc; s.halfWid = 0.0045 * sc;
+  }
+
   // ---- campaign ----------------------------------------------------------
   totalStars() { return Object.values(this.save.campaign.stars).reduce((a, b) => a + b, 0); }
   levelStars(w, i) { return this.save.campaign.stars[levelId(w, i)] || 0; }
@@ -165,8 +189,9 @@ export class Game {
     this._resetWorld(recipe.seed);
     this.script = new LevelScript(recipe);
     this.level = { recipe, w, i, remaining: recipe.duration };
+    this._applySkeleton(this.selectedSkeleton());
     const lv = this.levels();
-    this.senseR = 0.16 + 0.05 * lv.sense;
+    this.senseR = (0.16 + 0.05 * lv.sense) * this.skeleton.stats.sense;
     const s = this.strider;
     if (recipe.modifiers.includes('heavy')) s.weight = 1.05;
     if (recipe.modifiers.includes('lowTension')) s.tension = 0.5;
@@ -293,8 +318,9 @@ export class Game {
     this.script = null;
     this.applyWorld(CLASSIC_WORLD);
     this._resetWorld(seed);
+    this._applySkeleton(this.selectedSkeleton());
     const lv = this.levels();
-    this.senseR = 0.16 + 0.05 * lv.sense;
+    this.senseR = (0.16 + 0.05 * lv.sense) * this.skeleton.stats.sense;
     if (mode === 'daily' && this.save.daily && this.save.daily.key === dailyKey() && this.save.daily.trace) {
       this.ghostTrace = this.save.daily.trace;
     } else if (this.save.ghost) {
@@ -317,6 +343,7 @@ export class Game {
   toTitle() {
     this.attract = true;
     this.state = 'title';
+    this._applySkeleton(SKELETONS[0]);
     this.script = null;
     this.mode = 'daily';
     if (this.world !== CLASSIC_WORLD) this.applyWorld(CLASSIC_WORLD);
@@ -465,8 +492,10 @@ export class Game {
     const lv = this.levels();
     const dir = this.inputDir;
     const dl = Math.hypot(dir.x, dir.y);
-    const inSlick = this._inSlick(s.x, s.y);
-    const heavy = Math.max(0, s.weight - 0.9);
+    const sk = this.skeleton.stats;
+    const inSlickRaw = this._inSlick(s.x, s.y);
+    const inSlick = inSlickRaw && !sk.slickImmune;
+    const heavy = Math.max(0, s.weight - 0.9 * sk.weight);
     const maxV = 0.21 * (1 + 0.12 * lv.legs) / (1 + 0.45 * heavy) * (inSlick ? 0.78 : 1) * (s.hunger <= 0 ? 0.8 : 1) * (s.onPad ? 0.6 : 1) * (this.skeleton ? this.skeleton.stats.speed : 1);
     const drag = dl > 0.01 ? 1.3 : 1.9;
     if (dl > 0.01) {
@@ -515,7 +544,7 @@ export class Game {
     const wave = slope * 0.085 + Math.abs(smp.h) * 5;
     this.waveAtStrider = wave;
     const tipThr = 0.48 - 0.10 * heavy;
-    const hairs = 1 - 0.16 * lv.hairs;
+    const hairs = (1 - 0.16 * lv.hairs) / sk.tension;
     const decay = Math.exp(-dt / 4);
     for (const k in this.dmg) this.dmg[k] *= decay;
     if (wave > tipThr && s.immune <= 0 && !s.onPad) {
@@ -526,13 +555,13 @@ export class Game {
     } else if ((wave < tipThr * 0.6 || s.onPad) && !inSlick && s.hunger > 0) {
       s.tension += dt * (s.onPad ? 0.09 : 0.035);
     }
-    if (inSlick && !s.wasInSlick) this.stats.slickTouches++;
-    s.wasInSlick = inSlick;
+    if (inSlickRaw && !s.wasInSlick) this.stats.slickTouches++;
+    s.wasInSlick = inSlickRaw;
     if (inSlick) { s.tension -= dt * 0.11; this.dmg.slick += dt * 0.11; if (s.hurtT <= 0) { s.hurtT = 1.2; this.hint('slick · surface weakens', 2); } }
     s.hunger -= dt / 110;
     if (s.hunger <= 0) { s.hunger = 0; s.tension -= dt * 0.05; this.dmg.hunger += dt * 0.05; }
     s.weight = Math.max(0, s.weight - dt * 0.035);
-    if (s.weight > 1) { s.tension -= dt * 0.06 * (s.weight - 1); this.dmg.weight += dt * 0.06 * (s.weight - 1); }
+    if (s.weight > sk.weight) { s.tension -= dt * 0.06 * (s.weight - sk.weight); this.dmg.weight += dt * 0.06 * (s.weight - sk.weight); }
     s.tension = clamp(s.tension, 0, 1);
     if (this.god) s.tension = Math.max(s.tension, 0.5);
     if (s.tension <= 0) this._sink();
@@ -565,7 +594,7 @@ export class Game {
     if (this.state !== 'playing' || s.pulseCool > 0) return;
     const lv = this.levels();
     const sign = this.phaseSign();
-    const strength = 1 + 0.22 * lv.pulse;
+    const strength = (1 + 0.22 * lv.pulse) * this.skeleton.stats.pulse;
     s.pulseCool = 0.42;
     s.lastPulse = 0;
     s.immune = Math.max(s.immune, 0.22);
@@ -610,31 +639,32 @@ export class Game {
     else s.strokePhase = s.strokePhase > 0.02 ? (s.strokePhase + dt / 0.6) % 1 : 0;
     const ph = s.strokePhase;
     const strokeStart = moving && prev > ph;
+    const look = this.skeleton.look, sc = look.scale, ll = look.legLen, dimple = this.skeleton.stats.dimple;
     for (let i = 0; i < 6; i++) {
       const def = LEG_DEF[i];
       const f = s.feet[i];
-      let ox = def.rest[0], oy = def.rest[1], w = 1;
+      let ox = def.rest[0] * sc * ll, oy = def.rest[1] * sc * ll, w = 1;
       if (def.kind === 'mid') {
-        if (ph < 0.4) { ox += lerp(0.012, -0.015, ph / 0.4); w = 1; }
-        else { const q = (ph - 0.4) / 0.6; ox += lerp(-0.015, 0.012, q); w = moving ? 0.12 : 1; }
-        if (!moving && ph === 0) { ox = def.rest[0]; w = 1; }
+        if (ph < 0.4) { ox += lerp(0.012, -0.015, ph / 0.4) * sc; w = 1; }
+        else { const q = (ph - 0.4) / 0.6; ox += lerp(-0.015, 0.012, q) * sc; w = moving ? 0.12 : 1; }
+        if (!moving && ph === 0) { ox = def.rest[0] * sc * ll; w = 1; }
       } else if (def.kind === 'rear') {
-        ox += 0.004 * Math.sin(TAU * ph + Math.PI) * (moving ? 1 : 0);
+        ox += 0.004 * sc * Math.sin(TAU * ph + Math.PI) * (moving ? 1 : 0);
       }
       // rear legs steer slightly with velocity
       const fx = s.x + ox * c - oy * sn, fy = s.y + ox * sn + oy * c;
-      const hx = s.x + def.hip[0] * c - def.hip[1] * sn, hy = s.y + def.hip[0] * sn + def.hip[1] * c;
+      const hx = s.x + (def.hip[0] * c - def.hip[1] * sn) * sc, hy = s.y + (def.hip[0] * sn + def.hip[1] * c) * sc;
       const onPad = this.obstacles.pads.length && this._padAt(fx, fy);
-      f.x = fx; f.y = fy; f.r = def.r; f.w = onPad ? 0 : w * (1 - s.sink);
+      f.x = fx; f.y = fy; f.r = def.r * sc * dimple; f.w = onPad ? 0 : w * (1 - s.sink);
       f.hx = hx; f.hy = hy;
       // knee: 55% along, pushed outward from body
       const side = Math.sign(def.rest[1]);
       const px = -sn * side, py = c * side; // outward perpendicular
-      const out = def.kind === 'front' ? 0.004 : 0.009;
+      const out = (def.kind === 'front' ? 0.004 : 0.009) * sc * ll;
       f.kx = hx + (fx - hx) * 0.5 + px * out;
       f.ky = hy + (fy - hy) * 0.5 + py * out;
       if (strokeStart && def.kind === 'mid' && this.state !== 'title' && !onPad) {
-        this.water.disc(fx, fy, 0.012, -(0.003 + 0.012 * speedNorm));
+        this.water.disc(fx, fy, 0.012 * sc, -(0.003 + 0.012 * speedNorm) * sc);
       }
     }
     if (strokeStart && this.state === 'title') {
@@ -752,11 +782,12 @@ export class Game {
 
   _checkEating() {
     const s = this.strider;
-    const hx = s.x + Math.cos(s.heading) * 0.016, hy = s.y + Math.sin(s.heading) * 0.016;
+    const sc = this.skeleton.look.scale;
+    const hx = s.x + Math.cos(s.heading) * 0.016 * sc, hy = s.y + Math.sin(s.heading) * 0.016 * sc;
     for (const g of this.gnats) {
       if (g.state !== 'struggle') continue;
       const d = Math.hypot(g.x - hx, g.y - hy);
-      if (d < 0.016 + g.size * 0.6) {
+      if (d < 0.016 * sc + g.size * 0.6) {
         g.state = 'gone';
         const pts = (g.kind ? 80 : 50) + (g.stun > 0 ? 60 : 0);
         this.score += pts;
@@ -1345,15 +1376,17 @@ export class Game {
       // strider legs & body
       if (s.visible) {
         const fade = 1 - s.sink * 0.8;
-        const lc = [0.2, 0.15, 0.1];
+        const look = this.skeleton.look;
+        const lc = look.legs;
         for (let i = 0; i < 6; i++) {
           const f = s.feet[i];
-          const rad = 0.0012;
+          const rad = 0.0012 * look.legWidth * look.scale;
           r.capsule(f.hx, f.hy, f.kx, f.ky, rad * 1.1, lc[0], lc[1], lc[2], fade);
           r.capsule(f.kx, f.ky, f.x, f.y, rad, lc[0], lc[1], lc[2], fade);
         }
         const hurt = s.hurtT > 0 ? 0.5 + 0.5 * Math.sin(this.wall * 40) : 0;
-        r.sprite(s.x, s.y, 0.028, s.heading, 6, s.sink, 0, 0, lerp(0.15, 0.55, hurt * 0.35), lerp(0.11, 0.18, hurt * 0.2), 0.08, fade);
+        const bc = look.body;
+        r.sprite(s.x, s.y, 0.028 * look.scale, s.heading, 6, s.sink, 0, 0, lerp(bc[0], 0.55, hurt * 0.35), lerp(bc[1], 0.18, hurt * 0.2), bc[2], fade);
       }
       // frog + tongue
       const fr = this.frog;
@@ -1401,7 +1434,7 @@ export class Game {
       }
       // HUD arcs around the strider
       if (this.state === 'playing' || this.state === 'sinking') {
-        const R = 0.058;
+        const R = 0.058 * (0.7 + 0.3 * this.skeleton.look.scale * this.skeleton.look.legLen);
         const tf = s.tension;
         const ta = 0.25 + 0.65 * (1 - tf) + (s.hurtT > 0 ? 0.3 : 0);
         const tc = tf > 0.5 ? [lerp(1, 1, 0), lerp(0.75, 1, (tf - 0.5) * 2), lerp(0.3, 1, (tf - 0.5) * 2)] : [1, lerp(0.2, 0.75, tf * 2), lerp(0.1, 0.3, tf * 2)];
@@ -1429,8 +1462,9 @@ export class Game {
         const rr = 0.68 + 0.14 * pv;
         const base = 0.16 + 0.12 * Math.abs(pv) + 0.6 * this.ready * (sign < 0 ? 1 : 0.3);
         const cool = s.pulseCool > 0 ? 0.35 : 1;
-        r.sprite(s.x, s.y, 0.07, 0, 1, rr, 0.03 + 0.03 * this.ready, 0.08, col[0], col[1], col[2], base * cool);
-        if (this.ready > 0.3 && sign < 0) r.sprite(s.x, s.y, 0.07 * rr, this.wall * 2, 8, 0, 0, 0, 0.5, 0.8, 1, 0.25 * this.ready * (0.6 + 0.4 * Math.sin(this.wall * 12)));
+        const PR = 0.07 * (0.7 + 0.3 * this.skeleton.look.scale * this.skeleton.look.legLen);
+        r.sprite(s.x, s.y, PR, 0, 1, rr, 0.03 + 0.03 * this.ready, 0.08, col[0], col[1], col[2], base * cool);
+        if (this.ready > 0.3 && sign < 0) r.sprite(s.x, s.y, PR * rr, this.wall * 2, 8, 0, 0, 0, 0.5, 0.8, 1, 0.25 * this.ready * (0.6 + 0.4 * Math.sin(this.wall * 12)));
         // sense radius hint at night: faint halos on prey you can feel
         if (night > 0.3) {
           for (const g of this.gnats) {
