@@ -190,7 +190,7 @@ export class Game {
     const k = 1 + 0.28 * loop;
     const e = {
       t, loop,
-      rain: k * kf(t, [[0, 0], [57, 0], [62, 0.2], [150, 0.35], [168, 1.8], [225, 2.8], [240, 1.4], [252, 0.5], [330, 0.6], [344, 4.5], [405, 5.5], [420, 3], [430, 0]]),
+      rain: k * kf(t, [[0, 0], [57, 0], [62, 0.2], [150, 0.35], [168, 1.5], [225, 2.2], [240, 1.2], [252, 0.5], [330, 0.6], [344, 3.6], [405, 4.5], [420, 2.5], [430, 0]]),
       night: kf(t, [[236, 0], [250, 1], [330, 1], [344, 0.6], [418, 0.6], [426, 0.15], [432, 0]]),
       storm: kf(t, [[0, 0], [140, 0.15], [170, 0.85], [238, 0.6], [330, 0.7], [344, 1], [418, 0.9], [428, 0.2], [432, 0]]),
       dawn: kf(t, [[0, 1], [45, 1], [80, 0], [418, 0], [426, 1]]),
@@ -355,12 +355,12 @@ export class Game {
     const slope = Math.hypot(smp.gx, smp.gy);
     const wave = slope * 0.085 + Math.abs(smp.h) * 5;
     this.waveAtStrider = wave;
-    const tipThr = 0.44 - 0.10 * heavy;
+    const tipThr = 0.48 - 0.10 * heavy;
     const hairs = 1 - 0.16 * lv.hairs;
     const decay = Math.exp(-dt / 4);
     for (const k in this.dmg) this.dmg[k] *= decay;
     if (wave > tipThr && s.immune <= 0) {
-      const dmg = Math.min(0.75, (wave - tipThr) * 1.8) * dt * hairs;
+      const dmg = Math.min(0.7, (wave - tipThr) * 1.5) * dt * hairs;
       s.tension -= dmg;
       this.dmg.wave += dmg;
       if (s.hurtT <= 0 && dmg > 0.004) { s.hurtT = 0.5; this.audio.hurt(); this.combo = 0; }
@@ -417,14 +417,14 @@ export class Game {
       // CANCEL: counter-phase pulse against an incoming crest → glass zone
       const quality = clamp(pk.h / 0.05, 0.4, 1);
       const perfect = pk.h > 0.05;
-      const r = (0.10 + 0.018 * lv.pulse) * (0.8 + 0.4 * quality);
-      this.zones.push({ x: s.x, y: s.y, r, s: 1, t: 0, dur: 0.95 + 0.12 * lv.pulse });
+      const r = (0.10 + 0.018 * lv.pulse) * (0.85 + 0.3 * quality);
+      this.zones.push({ x: s.x, y: s.y, r, s: 1, t: 0, dur: 1.3 + 0.15 * lv.pulse });
       this.combo = Math.min(9, this.combo + 1);
       this.comboT = 3.5;
       this.stats.cancels++;
       if (perfect) this.stats.perfect++;
       this.stats.bestCombo = Math.max(this.stats.bestCombo, this.combo);
-      const pts = Math.round((100 + (perfect ? 100 : 0)) * (1 + 0.25 * (this.combo - 1)));
+      const pts = Math.round((40 + (perfect ? 40 : 0)) * (1 + 0.15 * (this.combo - 1)));
       this.score += pts;
       this.audio.cancel(quality);
       this.flash = 0.12 * quality;
