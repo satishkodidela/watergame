@@ -15,6 +15,9 @@ export class Water {
     this.nu = 0.01;
     this.pondR = POND_R;
     this.edgeWall = 0;
+    this.obstacles = { pads: [], stalks: [] };
+    this.maskTex = null;
+    this.maskN = 0;
     this.progSim = new Program(gl, quadVS, simFS, 'sim');
     this.progCopy = new Program(gl, quadVS, copyFS, 'copy');
     this.progRead = new Program(gl, quadVS, readbackFS, 'readback');
@@ -38,6 +41,45 @@ export class Water {
   }
 
   get tex() { return this.a.tex; }
+
+  // Solid obstacles (lily pads, stalks) rasterised into an R8 mask the sim
+  // forces to zero height: waves reflect and diffract around them.
+  setObstacles(pads, stalks) {
+    this.obstacles = { pads: pads || [], stalks: stalks || [] };
+    this._uploadMask();
+  }
+
+  _uploadMask() {
+    const gl = this.gl;
+    const n = this.n;
+    if (!this.maskTex || this.maskN !== n) {
+      if (this.maskTex) gl.deleteTexture(this.maskTex);
+      this.maskTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.maskTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R8, n, n);
+      this.maskN = n;
+    }
+    const data = new Uint8Array(n * n);
+    const { pads, stalks } = this.obstacles;
+    const mark = (cx, cy, r) => {
+      const x0 = Math.max(0, Math.floor((cx - r) * n)), x1 = Math.min(n - 1, Math.ceil((cx + r) * n));
+      const y0 = Math.max(0, Math.floor((cy - r) * n)), y1 = Math.min(n - 1, Math.ceil((cy + r) * n));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const dx = (x + 0.5) / n - cx, dy = (y + 0.5) / n - cy;
+        if (dx * dx + dy * dy <= r * r) data[y * n + x] = 255;
+      }
+    };
+    for (const p of pads) mark(p.x, p.y, p.r * 0.93);
+    for (const s of stalks) mark(s.x, s.y, s.r);
+    gl.bindTexture(gl.TEXTURE_2D, this.maskTex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, n, n, gl.RED, gl.UNSIGNED_BYTE, data);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  }
   get texel() { return 1 / this.n; }
 
   resize(n) {
@@ -58,6 +100,7 @@ export class Water {
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
     this.a = na; this.b = nb; this.n = n;
+    this._uploadMask();
   }
 
   clear() {
@@ -81,6 +124,7 @@ export class Water {
     const gl = this.gl;
     const p = this.progSim.use();
     p.f('uTexel', this.texel).f('uC2', this.c2).f('uDamp', this.damp).f('uNu', this.nu).f('uPondR', this.pondR).f('uEdgeWall', this.edgeWall);
+    p.tex('uMask', 1, this.maskTex);
     const nz = Math.min(12, this.zones.length);
     for (let i = 0; i < nz; i++) {
       const z = this.zones[i];

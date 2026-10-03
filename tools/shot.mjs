@@ -124,6 +124,26 @@ if (scenes.includes('worlds')) {
     await settle(); await shot(`30-world-${w}`);
   }
 }
+if (scenes.includes('mech')) {
+  // garden: pads + koi boss
+  await run(() => { window.__gw.show(null); window.__gw.startLevel(1, 24); const g = window.__gw.game; g.god = true; window.__gw.advance(6); g.fish.state = 'stalk'; g.fish.t = 6; g.fish.cool = 99; g.fish.visible = true; g.fish.depth = 0.6; g.fish.x = g.strider.x - 0.1; g.fish.y = g.strider.y - 0.06; g.fish.heading = 0.5; window.__gw.advance(0.5); });
+  await settle(); await shot('40-garden-koi');
+  // barrel: overflow boss
+  await run(() => { window.__gw.show(null); window.__gw.startLevel(2, 24); window.__gw.game.god = true; window.__gw.advance(10); });
+  await settle(); await shot('41-barrel-overflow');
+  // ditch: car + drain boss
+  await run(() => { window.__gw.show(null); window.__gw.startLevel(3, 24); const g = window.__gw.game; g.god = true; window.__gw.advance(5); g.carT = 0; window.__gw.advance(1.0); g.drain.t = 0.5; window.__gw.advance(1.2); });
+  await settle(); await shot('42-ditch-car-drain');
+  // paddy: stalks + egret
+  await run(() => { window.__gw.show(null); window.__gw.startLevel(4, 24); const g = window.__gw.game; g.god = true; window.__gw.advance(4); g.egret.t = 0; window.__gw.advance(1.9); });
+  await settle(); await shot('43-paddy-egret');
+  // tarn: hail boss
+  await run(() => { window.__gw.show(null); window.__gw.startLevel(5, 24); const g = window.__gw.game; g.god = true; window.__gw.advance(6); g.hailT = 0; window.__gw.advance(0.6); });
+  await settle(); await shot('44-tarn-hail');
+  await run(() => { window.__gw.game.debugZoom = 2.2; window.__gw.show(null); window.__gw.startLevel(1, 3); const g = window.__gw.game; g.god = true; window.__gw.advance(3); const p = g.obstacles.pads[0]; if (p) { g.strider.x = p.x + p.r * 0.2; g.strider.y = p.y; } window.__gw.advance(0.5); g.cam.scale *= 2.2; });
+  await page.waitForTimeout(1500); await shot('45-pad-closeup');
+  await run(() => { window.__gw.game.debugZoom = 0; });
+}
 if (scenes.includes('calib')) {
   const list = (process.env.LEVELS || '0:0,0:1,0:2,0:4,0:6,0:9,0:14,0:19,0:24').split(',').map((s) => s.split(':').map(Number));
   const out = [];

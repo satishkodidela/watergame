@@ -236,7 +236,7 @@ window.addEventListener('keydown', (e) => {
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.state === 'playing') setPaused(true); });
 canvas.addEventListener('pointerdown', () => audio.init(), { once: true });
 
-const CAUSES = { wave: 'A wave tipped you.', slick: 'The slick let go of you.', hunger: 'You starved.', weight: 'Too heavy for the skin.', fish: 'The god below took you.', frog: 'The frog.', bug: 'A backswimmer found you.' };
+const CAUSES = { wave: 'A wave tipped you.', slick: 'The slick let go of you.', hunger: 'You starved.', weight: 'Too heavy for the skin.', fish: 'The god below took you.', frog: 'The frog.', bug: 'A backswimmer found you.', egret: 'The egret.', drain: 'The drain took you.' };
 function onLevelEnd(res) {
   show('levelend');
   const r = res.recipe;

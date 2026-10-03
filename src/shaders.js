@@ -23,6 +23,7 @@ uniform float uDamp;
 uniform float uNu;
 uniform float uPondR;
 uniform float uEdgeWall;
+uniform sampler2D uMask;
 uniform int uNumImp;
 uniform vec4 uImp[16];   // x, y, radius, amp
 uniform vec4 uImpB[16];  // type(0 disc,1 ring), ringWidth, 0, 0
@@ -82,6 +83,8 @@ void main(){
     }
   }
   if (uEdgeWall > 0.5 && dist > uPondR) { hn = 0.0; hprev = 0.0; }   // hard wall: waves reflect
+  float solid = texture(uMask, vUv).r;
+  hn *= 1.0 - solid; hprev *= 1.0 - solid;                            // pads and stalks
   hn = clamp(hn, -1.0, 1.0);
   frag = vec4(hn, hprev, 0.0, 1.0);
 }`;
@@ -240,6 +243,11 @@ uniform float uMicro;       // wind capillary texture strength (render only)
 uniform vec2 uWind;
 uniform vec3 uTintCol, uDeepCol, uGlowA, uGlowB, uBankTint, uBankMoss, uSunCol, uZenith, uHorizon;
 uniform float uMurk, uBankMossAmt, uEdgeWall, uDepthW;
+uniform vec4 uPad[8];
+uniform int uNumPad;
+uniform vec4 uStalk[12];
+uniform int uNumStalk;
+uniform float uFishKind;
 in vec2 vUv;
 out vec4 frag;
 ${noiseLib}
@@ -379,6 +387,19 @@ void main(){
     float db = sdEll(lp, uBodySize.xy);
     sh *= 1.0 - 0.55 * (1.0 - smoothstep(0.0, 0.006, db));
   }
+  for (int i = 0; i < 8; i++) {
+    if (i >= uNumPad) break;
+    vec4 P = uPad[i];
+    float d = length(fuv - (P.xy + shOff * 1.6)) - P.z;
+    sh *= 1.0 - 0.55 * (1.0 - smoothstep(-0.006, 0.006, d));
+  }
+  for (int i = 0; i < 12; i++) {
+    if (i * 2 >= uNumStalk) break;
+    vec4 S = uStalk[i];
+    float d1 = length(fuv - (S.xy + shOff * 1.2)) - 0.011;
+    sh *= 1.0 - 0.5 * (1.0 - smoothstep(-0.003, 0.004, d1));
+    if (i * 2 + 1 < uNumStalk) { float d2 = length(fuv - (S.zw + shOff * 1.2)) - 0.011; sh *= 1.0 - 0.5 * (1.0 - smoothstep(-0.003, 0.004, d2)); }
+  }
   light = light * sh + vec3(rim * (0.3 + 0.7 * sunUp) * 0.9);
 
   vec3 under = bed * light;
@@ -404,6 +425,13 @@ void main(){
       float a = 1.0 - smoothstep(-soft * 0.4, soft, d);
       a *= mix(0.35, 0.97, depth);
       vec3 fc = mix(vec3(0.09, 0.12, 0.09), vec3(0.36, 0.38, 0.29), smoothstep(-L * 0.1, L * 0.14, lp.y));
+      if (uFishKind > 0.5) {
+        float koiA = smoothstep(0.42, 0.58, noise(lp * (5.0 / L) + 3.1));
+        float koiB = smoothstep(0.5, 0.62, noise(lp * (9.0 / L) + 11.0));
+        fc = mix(vec3(0.88, 0.84, 0.76), vec3(0.90, 0.45, 0.12), koiA * 0.85);
+        fc = mix(fc, vec3(0.16, 0.13, 0.12), koiB * 0.55);
+        fc *= mix(0.4, 1.0, smoothstep(-L * 0.02, -L * 0.2, d));
+      }
       fc += vec3(0.30, 0.26, 0.16) * smoothstep(0.6, 1.0, depth) * 0.6 * (1.0 - smoothstep(0.0, L * 0.2, abs(lp.y)));
       fc *= mix(0.5, 1.0, smoothstep(-L * 0.02, -L * 0.16, d));                 // darker rim
       fc *= 0.9 + 0.2 * noise(lp * (14.0 / L));                                 // scales
@@ -493,6 +521,55 @@ void main(){
     float dg = length(world - uGhost.xy);
     float ring = exp(-pow((dg - uGhost.z) / (uGhost.z * 0.25), 2.0));
     col += vec3(0.4, 0.8, 1.0) * ring * uGhost.w * 0.35;
+  }
+
+  // ---- lily pads and stalks (above the water) ----
+  float pxw = 1.0 / uCam.z;
+  for (int i = 0; i < 8; i++) {
+    if (i >= uNumPad) break;
+    vec4 P = uPad[i];
+    vec2 dv = world - P.xy;
+    if (dot(dv, dv) > P.z * P.z * 1.7) continue;
+    float c = cos(P.w), s = sin(P.w);
+    vec2 lp = vec2(dv.x * c + dv.y * s, -dv.x * s + dv.y * c);
+    float ang = atan(lp.y, lp.x);
+    float rr = P.z * (1.0 + 0.035 * sin(ang * 7.0 + P.w * 3.0));
+    float d = length(lp) - rr;
+    float notch = max(lp.x - rr * 0.1, 0.0) * 0.36 - abs(lp.y);
+    if (notch > 0.0) d = max(d, min(notch, rr));
+    float meniscus = exp(-pow(max(d, 0.0) / 0.0045, 2.0));
+    col *= 1.0 - 0.3 * meniscus * step(0.0, d);
+    float a = 1.0 - smoothstep(-pxw, pxw, d);
+    if (a > 0.0) {
+      float rad = length(lp) / rr;
+      float veins = pow(abs(sin(ang * 9.0 + 0.3)), 28.0) * (1.0 - rad * 0.7);
+      vec3 base = mix(vec3(0.15, 0.40, 0.13), vec3(0.34, 0.60, 0.19), rad);
+      base += vec3(0.10, 0.14, 0.05) * veins;
+      base *= 0.86 + 0.16 * noise(lp * 160.0 + P.xy * 50.0);
+      base *= 1.0 - 0.4 * smoothstep(0.84, 1.0, rad);
+      base *= 0.88 + 0.22 * clamp(dot(normalize(lp + vec2(1e-4)), uSun.xy / max(length(uSun.xy), 1e-3)), -1.0, 1.0);
+      base += vec3(0.5, 0.55, 0.4) * pow(max(0.0, 1.0 - length(lp - vec2(-0.25, 0.2) * rr) / (rr * 0.6)), 3.0) * 0.25 * sunUp;
+      base *= mix(1.0, 0.18, uNight);
+      col = mix(col, base, a);
+    }
+  }
+  for (int i = 0; i < 12; i++) {
+    if (i * 2 >= uNumStalk) break;
+    vec4 S = uStalk[i];
+    for (int k = 0; k < 2; k++) {
+      if (i * 2 + k >= uNumStalk) break;
+      vec2 sp = k == 0 ? S.xy : S.zw;
+      vec2 dv = world - sp;
+      if (dot(dv, dv) > 0.0012) continue;
+      float d = length(dv) - 0.0105;
+      float a = 1.0 - smoothstep(-pxw, pxw, d);
+      col *= 1.0 - 0.3 * exp(-pow(max(d, 0.0) / 0.004, 2.0)) * step(0.0, d);
+      vec3 sc = mix(vec3(0.22, 0.30, 0.10), vec3(0.46, 0.54, 0.22), noise(dv * 400.0 + sp * 90.0));
+      sc *= 0.75 + 0.5 * clamp(dot(normalize(dv + vec2(1e-4)), uSun.xy / max(length(uSun.xy), 1e-3)), 0.0, 1.0);
+      sc *= mix(1.0, 0.55, uNight);
+      sc += uGlowB * 0.25 * uNight * (1.0 - smoothstep(-0.004, 0.0, d));
+      col = mix(col, sc, a);
+    }
   }
 
   // ---- sense fog ----
@@ -645,6 +722,21 @@ void main(){
     a = min(a, 1.0);
   } else if (t == 9) {                // raindrop shadow: p0 softness, falling disc
     a = (1.0 - smoothstep(vP.y, 1.0, r)) * (0.75 + 0.25 * (1.0 - smoothstep(0.0, 0.5, r)));
+  } else if (t == 11) {               // egret shadow: p0 wing phase, p1 edge softness
+    vec2 p = vL;
+    float flap = vP.y;
+    float body = sdEll(p - vec2(-0.05, 0.0), vec2(0.40, 0.15));
+    float neck = sdCapsule(p, vec2(0.28, 0.0), vec2(0.60, 0.13), 0.045);
+    float head = sdEll(p - vec2(0.66, 0.15), vec2(0.10, 0.06));
+    float beak = sdCapsule(p, vec2(0.72, 0.15), vec2(0.98, 0.20), 0.02);
+    float w1 = sdEll(rot(p - vec2(-0.08, 0.14), 0.30 + 0.30 * flap), vec2(0.58, 0.15));
+    float w2 = sdEll(rot(p - vec2(-0.08, -0.14), -0.30 - 0.30 * flap), vec2(0.58, 0.15));
+    float legs = sdCapsule(p, vec2(-0.40, 0.0), vec2(-0.92, -0.05), 0.022);
+    float d = min(min(min(body, neck), min(head, beak)), min(min(w1, w2), legs));
+    a = 1.0 - smoothstep(-vP.z, vP.z, d);
+  } else if (t == 12) {               // hailstone: bright bead with a dark rim
+    a = 1.0 - smoothstep(0.7, 1.0, r);
+    col = mix(col, vec3(1.0), pow(max(0.0, 1.0 - length(vL - vec2(-0.3, 0.3)) * 1.4), 2.0) * 0.8);
   } else if (t == 10) {               // joystick base/knob ring
     float d = abs(r - 0.9) - 0.06;
     a = aa(d) * 0.6 + (1.0 - smoothstep(0.0, 0.9, r)) * 0.08;

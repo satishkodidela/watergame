@@ -121,12 +121,12 @@ export function goalProgress(goal, g) {
 const OPENERS = {
   puddle: [
     { template: 'survive', duration: 55, rainPeak: 0.5, hint: 'drag to skate · tap to pulse' },
-    { template: 'feast', goal: { type: 'eat', n: 3 }, duration: 70, rainPeak: 0.2, gnatRate: 0.6 },
-    { template: 'glass', goal: { type: 'cancel', n: 3 }, duration: 75, rainPeak: 0.3, aimed: 0.3, hint: 'pulse on dark as the bright crest arrives' },
+    { template: 'feast', goal: { type: 'eat', n: 4 }, duration: 70, rainPeak: 0.2, gnatRate: 0.45 },
+    { template: 'glass', goal: { type: 'cancel', n: 4 }, duration: 75, rainPeak: 0.3, aimed: 0.22, hint: 'pulse on dark as the bright crest arrives' },
     { template: 'survive', duration: 65, rainPeak: 1.0 },
     { template: 'feast', goal: { type: 'eat', n: 5 }, duration: 80, rainPeak: 0.6, gnatRate: 0.55 },
     { template: 'glass', goal: { type: 'perfect', n: 2 }, duration: 80, rainPeak: 0.5, aimed: 0.3, hint: 'closer crests make perfect cancels' },
-    { template: 'cross', goal: { type: 'cross', n: 3 }, duration: 75, rainPeak: 0.6 },
+    { template: 'cross', goal: { type: 'cross', n: 4 }, duration: 75, rainPeak: 0.6 },
     { template: 'survive', duration: 70, rainPeak: 1.4 },
   ],
   garden: [
@@ -154,11 +154,11 @@ const OPENERS = {
 };
 
 const BOSSES = {
-  puddle: { name: 'The First Downpour', template: 'survive', duration: 90, rainPeak: 3.2, dropSize: 0.9, hint: 'chain cancels · carve a calm patch' },
+  puddle: { name: 'The First Downpour', template: 'survive', duration: 90, rainPeak: 2.6, dropSize: 0.88, hint: 'chain cancels · carve a calm patch' },
   garden: { name: 'The Koi', template: 'hunt', goal: { type: 'scare', n: 3 }, duration: 110, rainPeak: 1.2, fish: 1.6, boss: 'koi' },
   barrel: { name: 'The Overflow', template: 'survive', duration: 95, rainPeak: 1.6, boss: 'overflow' },
   ditch: { name: 'The Storm Drain', template: 'survive', duration: 95, rainPeak: 1.8, boss: 'drain' },
-  paddy: { name: 'The Egret', template: 'survive', duration: 100, rainPeak: 1.0, boss: 'egret', egret: 1 },
+  paddy: { name: 'The Egret', template: 'survive', duration: 100, rainPeak: 1.0, boss: 'egret', egret: 1.5 },
   tarn: { name: 'The Hailstorm', template: 'survive', duration: 100, rainPeak: 1.0, boss: 'hail', hail: 2 },
 };
 
@@ -192,10 +192,10 @@ export function makeLevel(w, i) {
   let goal = auth.goal;
   if (!goal) {
     if (template === 'survive') goal = { type: 'survive' };
-    else if (template === 'feast') goal = { type: 'eat', n: 3 + Math.round(D * 1.6) };
-    else if (template === 'glass') goal = rng() < 0.5 || D < 0.8 ? { type: 'cancel', n: 3 + Math.round(D * 2) } : { type: 'perfect', n: 2 + Math.round(D) };
+    else if (template === 'feast') goal = { type: 'eat', n: 4 + Math.round(D * 2) };
+    else if (template === 'glass') goal = rng() < 0.5 || D < 0.8 ? { type: 'cancel', n: 4 + Math.round(D * 2.5) } : { type: 'perfect', n: 2 + Math.round(D * 1.2) };
     else if (template === 'hunt') goal = world.roster.bugs > 0 && (world.roster.fish === 0 || rng() < 0.5) ? { type: 'stun', n: 1 + Math.round(D * 0.6) } : { type: 'scare', n: 1 + Math.round(D * 0.5) };
-    else goal = { type: 'cross', n: 3 + Math.round(D) };
+    else goal = { type: 'cross', n: 4 + Math.round(D * 1.2) };
   }
 
   // duration & weather
@@ -220,13 +220,13 @@ export function makeLevel(w, i) {
       dawn: world.dawn * (1 - p * 0.6),
     },
     roster: {
-      gnatRate: auth.gnatRate ?? (template === 'feast' ? 0.5 : 0.3),
+      gnatRate: auth.gnatRate ?? (template === 'feast' ? 0.42 : 0.3),
       slickRate: world.roster.slicks * (0.6 + D * 0.4),
       fish: auth.fish ?? (world.roster.fish ? Math.min(1.4, world.roster.fish * (0.4 + D * 0.4)) : (D > 1.4 && rng() < 0.3 ? 0.6 : 0)),
       frog: world.roster.frog && D > 0.9 ? 1 : 0,
       bugs: auth.bugs ?? (world.roster.bugs ? Math.min(2, Math.max(1, Math.round(world.roster.bugs * (0.5 + D * 0.3)))) : 0),
       dropSize: auth.dropSize ?? (world.dropSize + D * 0.07),
-      aimed: auth.aimed ?? (template === 'glass' ? 0.28 : 0),
+      aimed: auth.aimed ?? (template === 'glass' ? 0.22 : 0),
       hail: auth.hail ?? world.roster.hail * (0.5 + D * 0.3),
       cars: world.roster.cars ? 0.4 + D * 0.3 : 0,
       egret: auth.egret ?? 0,

@@ -22,6 +22,8 @@ export class Renderer {
     this.scene = null; this.blurA = null; this.blurB = null;
     this.feet = new Float32Array(6 * 4);
     this.slicks = new Float32Array(8 * 4);
+    this.pads = new Float32Array(8 * 4);
+    this.stalks = new Float32Array(12 * 4);
     this._initSprites();
     this.world = CLASSIC_WORLD;
     this.bedTex = null;
@@ -155,6 +157,13 @@ export class Renderer {
     p.v3('uBankTint', ...W.bank.tint).v3('uBankMoss', ...W.bank.mossColor).f('uBankMossAmt', W.bank.moss);
     p.v3('uSunCol', ...W.light.sun).v3('uZenith', ...W.light.zenith).v3('uHorizon', ...W.light.horizon);
     p.f('uEdgeWall', water.edgeWall);
+    const ob = water.obstacles;
+    const np = Math.min(8, ob.pads.length);
+    for (let i = 0; i < np; i++) { const q = ob.pads[i]; this.pads[i * 4] = q.x; this.pads[i * 4 + 1] = q.y; this.pads[i * 4 + 2] = q.r; this.pads[i * 4 + 3] = q.rot || 0; }
+    p.i('uNumPad', np).v4a('uPad', this.pads);
+    const nst = Math.min(24, ob.stalks.length);
+    for (let i = 0; i < nst; i++) { const q = ob.stalks[i]; this.stalks[i * 2] = q.x; this.stalks[i * 2 + 1] = q.y; }
+    p.i('uNumStalk', nst).v4a('uStalk', this.stalks);
     const s = view.strider;
     for (let i = 0; i < 6; i++) {
       const f = s.feet[i];
@@ -166,6 +175,7 @@ export class Renderer {
     const fish = view.fish;
     p.v4('uFish', fish.x, fish.y, fish.heading, fish.size);
     p.v3('uFishState', fish.depth, fish.mouth, fish.visible ? 1 : 0);
+    p.f('uFishKind', fish.kind || 0);
     const bug = view.bug;
     p.v4('uBug', bug.x, bug.y, bug.heading, bug.visible ? bug.size : 0);
     const ns = Math.min(8, view.slicks.length);
